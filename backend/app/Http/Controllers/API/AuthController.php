@@ -40,6 +40,64 @@ class AuthController extends Controller
         }
     }
 
+    public function getUser(Request $request)
+    {
+        try {
+            $user = $request->user();
+
+            return response()->json([
+                'message' => 'Data user berhasil diambil',
+                'data' => $user
+            ]);
+        } catch (\Throwable $th) {
+            return response()->json([
+                "message" => "Server Error",
+                "errors" => $th->getMessage()
+            ], 500);
+        }
+    }
+
+    public function updateUser(Request $request)
+    {
+        try {
+            $user = $request->user();
+
+            $request->validate([
+                'name' => 'sometimes|required',
+                'email' => 'sometimes|required|email|unique:users,email,' . $user->id,
+                'phone' => 'sometimes|required|unique:users,phone,' . $user->id,
+                'gender' => 'sometimes|required|in:male,female',
+                'birth_date' => 'sometimes|required|date',
+                'password' => 'nullable|min:6|confirmed'
+            ]);
+
+            $data = $request->only([
+                'name',
+                'email',
+                'phone',
+                'gender',
+                'birth_date'
+            ]);
+
+            // kalau password diisi → hash
+            if ($request->filled('password')) {
+                $data['password'] = Hash::make($request->password);
+            }
+
+            $user->update($data);
+
+            return response()->json([
+                'message' => 'Data user berhasil diupdate',
+                'data' => $user
+            ]);
+        } catch (\Throwable $th) {
+            return response()->json([
+                "message" => "Server Error",
+                "errors" => $th->getMessage()
+            ], 500);
+        }
+    }
+
     public function register(Request $request) {
         try {
             $request->validate([

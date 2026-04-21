@@ -17,6 +17,8 @@ Route::prefix("v1")->group(function() {
             Route::post('/set-pin', [AuthController::class, 'setPin']);
             Route::post('/verify-pin', [AuthController::class, 'verifyPin']);
             Route::post('/logout', [AuthController::class, 'logout']);
+            Route::get('/user', [AuthController::class, 'getUser']);
+            Route::put('/user/update', [AuthController::class, 'updateUser']);
         });
     });
 

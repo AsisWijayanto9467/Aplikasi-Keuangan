@@ -122,12 +122,11 @@ class _RegisterPageState extends State<RegisterPage> {
             ),
           );
 
-          // Navigasi ke halaman SetPin dengan membawa token
-          Navigator.pushReplacement(
+          // Di dalam RegisterPage, ganti navigasi
+          Navigator.pushReplacementNamed(
             context,
-            MaterialPageRoute(
-              builder: (context) => SetPinPage(token: response['token']),
-            ),
+            '/set-pin',
+            arguments: {'token': response['token']},
           );
         }
       } else {

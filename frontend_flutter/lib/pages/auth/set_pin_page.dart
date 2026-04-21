@@ -163,13 +163,12 @@ class _SetPinPageState extends State<SetPinPage> {
               duration: const Duration(seconds: 1),
             ),
           );
-
-          // ✅ Navigasi ke VerifyPinPage (BUKAN langsung ke HomePage)
-          Navigator.pushReplacement(
+          
+          // Di dalam SetPinPage, ganti navigasi
+          Navigator.pushReplacementNamed(
             context,
-            MaterialPageRoute(
-              builder: (context) => VerifyPinPage(token: widget.token),
-            ),
+            '/verify-pin',
+            arguments: {'token': widget.token},
           );
         }
       } else {

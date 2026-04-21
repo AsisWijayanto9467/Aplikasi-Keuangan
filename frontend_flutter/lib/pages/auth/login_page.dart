@@ -27,6 +27,7 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
+  // Di dalam _handleLogin() method, setelah login sukses
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -77,22 +78,24 @@ class _LoginPageState extends State<LoginPage> {
 
           final token = response['token'];
           final hasPin = response['has_pin'] ?? false;
-          
-          if (hasPin) {
-            // Jika sudah punya PIN, arahkan ke halaman verifikasi PIN
-            Navigator.pushReplacement(
+
+          // ⭐ LOGIC BARU: Selalu cek PIN dulu
+          if (!hasPin) {
+            // User belum set PIN → ke SetPinPage
+            Navigator.pushReplacementNamed(
               context,
-              MaterialPageRoute(
-                builder: (context) => VerifyPinPage(token: token),
-              ),
+              '/set-pin',
+              arguments: {'token': token},
             );
           } else {
-            // Jika belum punya PIN, arahkan ke halaman buat PIN
-            Navigator.pushReplacement(
+            // User sudah punya PIN → harus verify PIN dulu
+            Navigator.pushReplacementNamed(
               context,
-              MaterialPageRoute(
-                builder: (context) => SetPinPage(token: token),
-              ),
+              '/verify-pin',
+              arguments: {
+                'token': token,
+                'from': 'login', // Untuk membedakan flow
+              },
             );
           }
         }
@@ -167,13 +170,12 @@ class _LoginPageState extends State<LoginPage> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             return SingleChildScrollView(
-              physics: isKeyboardVisible 
-                  ? const BouncingScrollPhysics() 
-                  : const NeverScrollableScrollPhysics(),
+              physics:
+                  isKeyboardVisible
+                      ? const BouncingScrollPhysics()
+                      : const NeverScrollableScrollPhysics(),
               child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: constraints.maxHeight,
-                ),
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
                 child: IntrinsicHeight(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 28.0),
@@ -182,9 +184,10 @@ class _LoginPageState extends State<LoginPage> {
                       children: [
                         // SPACER - lebih kecil saat keyboard muncul
                         SizedBox(
-                          height: isKeyboardVisible 
-                              ? size.height * 0.04 
-                              : size.height * 0.08,
+                          height:
+                              isKeyboardVisible
+                                  ? size.height * 0.04
+                                  : size.height * 0.08,
                         ),
 
                         // Header dengan dekorasi subtle
@@ -204,7 +207,9 @@ class _LoginPageState extends State<LoginPage> {
                                 ),
                                 borderRadius: BorderRadius.circular(20),
                                 border: Border.all(
-                                  color: const Color(0xFF1E3A8A).withOpacity(0.1),
+                                  color: const Color(
+                                    0xFF1E3A8A,
+                                  ).withOpacity(0.1),
                                   width: 1,
                                 ),
                               ),
@@ -318,8 +323,9 @@ class _LoginPageState extends State<LoginPage> {
                                     prefixIcon: Container(
                                       margin: const EdgeInsets.all(8),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFF1E3A8A)
-                                            .withOpacity(0.08),
+                                        color: const Color(
+                                          0xFF1E3A8A,
+                                        ).withOpacity(0.08),
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                       child: const Icon(
@@ -400,8 +406,9 @@ class _LoginPageState extends State<LoginPage> {
                                     prefixIcon: Container(
                                       margin: const EdgeInsets.all(8),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFF1E3A8A)
-                                            .withOpacity(0.08),
+                                        color: const Color(
+                                          0xFF1E3A8A,
+                                        ).withOpacity(0.08),
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                       child: const Icon(
@@ -414,14 +421,17 @@ class _LoginPageState extends State<LoginPage> {
                                       onPressed: () {
                                         setState(
                                           () =>
-                                              _obscurePassword = !_obscurePassword,
+                                              _obscurePassword =
+                                                  !_obscurePassword,
                                         );
                                       },
                                       icon: Container(
                                         padding: const EdgeInsets.all(6),
                                         decoration: BoxDecoration(
                                           color: Colors.grey.shade100,
-                                          borderRadius: BorderRadius.circular(10),
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
                                         ),
                                         child: Icon(
                                           _obscurePassword
@@ -496,8 +506,9 @@ class _LoginPageState extends State<LoginPage> {
                                     style: TextStyle(
                                       fontWeight: FontWeight.w600,
                                       fontSize: 13,
-                                      color: const Color(0xFF1E3A8A)
-                                          .withOpacity(0.8),
+                                      color: const Color(
+                                        0xFF1E3A8A,
+                                      ).withOpacity(0.8),
                                     ),
                                   ),
                                 ),
@@ -511,8 +522,9 @@ class _LoginPageState extends State<LoginPage> {
                                   borderRadius: BorderRadius.circular(18),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: const Color(0xFF1E3A8A)
-                                          .withOpacity(0.2),
+                                      color: const Color(
+                                        0xFF1E3A8A,
+                                      ).withOpacity(0.2),
                                       blurRadius: 12,
                                       offset: const Offset(0, 6),
                                     ),
@@ -530,38 +542,40 @@ class _LoginPageState extends State<LoginPage> {
                                         borderRadius: BorderRadius.circular(18),
                                       ),
                                       elevation: 0,
-                                      disabledBackgroundColor: Colors.grey.shade400,
+                                      disabledBackgroundColor:
+                                          Colors.grey.shade400,
                                     ),
-                                    child: _isLoading
-                                        ? const SizedBox(
-                                            height: 24,
-                                            width: 24,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2.5,
-                                              valueColor:
-                                                  AlwaysStoppedAnimation<Color>(
-                                                Colors.white,
+                                    child:
+                                        _isLoading
+                                            ? const SizedBox(
+                                              height: 24,
+                                              width: 24,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2.5,
+                                                valueColor:
+                                                    AlwaysStoppedAnimation<
+                                                      Color
+                                                    >(Colors.white),
                                               ),
-                                            ),
-                                          )
-                                        : Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            children: [
-                                              const Text(
-                                                'Masuk',
-                                                style: TextStyle(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.w600,
+                                            )
+                                            : Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                const Text(
+                                                  'Masuk',
+                                                  style: TextStyle(
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
                                                 ),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              const Icon(
-                                                Icons.arrow_forward_rounded,
-                                                size: 20,
-                                              ),
-                                            ],
-                                          ),
+                                                const SizedBox(width: 8),
+                                                const Icon(
+                                                  Icons.arrow_forward_rounded,
+                                                  size: 20,
+                                                ),
+                                              ],
+                                            ),
                                   ),
                                 ),
                               ),
@@ -624,9 +638,12 @@ class _LoginPageState extends State<LoginPage> {
                                   // Cara 1: Navigator.push
                                   Navigator.push(
                                     context,
-                                    MaterialPageRoute(builder: (context) => const RegisterPage()),
+                                    MaterialPageRoute(
+                                      builder:
+                                          (context) => const RegisterPage(),
+                                    ),
                                   );
-                                  
+
                                   // Cara 2: Navigator.pushNamed (jika sudah setup routes)
                                   // Navigator.pushNamed(context, '/register');
                                 },

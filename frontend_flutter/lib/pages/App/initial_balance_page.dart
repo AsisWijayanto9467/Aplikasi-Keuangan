@@ -281,12 +281,13 @@ class _InitialBalancePageState extends State<InitialBalancePage> {
 
         print('🚀 Navigating to Dashboard after skip...');
 
-        // GUNAKAN pushReplacement
-        Navigator.pushReplacement(
+        Navigator.pushReplacementNamed(
           context,
-          MaterialPageRoute(
-            builder: (context) => DashboardPage(token: widget.token),
-          ),
+          '/dashboard',
+          arguments: {
+            'token': widget.token,
+            'skipCheckBalance': true,
+          },
         );
       }
     } catch (e) {

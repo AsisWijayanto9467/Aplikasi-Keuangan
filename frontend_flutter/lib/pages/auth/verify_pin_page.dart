@@ -172,29 +172,20 @@ class _VerifyPinPageState extends State<VerifyPinPage> {
 
       if (!mounted) return;
 
+      // Di dalam VerifyPinPage, method _checkBalanceAndNavigate
       if (isInitialized) {
-        // ⭐ Sudah ada saldo, langsung ke Dashboard dengan skipCheckBalance
-        print('✅ Balance already initialized, navigating to Dashboard');
-        Navigator.pushAndRemoveUntil(
+        Navigator.pushNamedAndRemoveUntil(
           context,
-          MaterialPageRoute(
-            builder:
-                (context) => DashboardPage(
-                  token: widget.token,
-                  skipCheckBalance: true, // ⭐ PENTING!
-                ),
-          ),
+          '/dashboard',
           (route) => false,
+          arguments: {'token': widget.token, 'skipCheckBalance': true},
         );
       } else {
-        // ⭐ Belum ada saldo, arahkan ke InitialBalancePage
-        print('🆕 Balance not initialized, navigating to InitialBalancePage');
-        Navigator.pushAndRemoveUntil(
+        Navigator.pushNamedAndRemoveUntil(
           context,
-          MaterialPageRoute(
-            builder: (context) => InitialBalancePage(token: widget.token),
-          ),
+          '/initial-balance',
           (route) => false,
+          arguments: {'token': widget.token},
         );
       }
     } catch (e) {
