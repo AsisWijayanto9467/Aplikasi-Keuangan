@@ -1,26 +1,23 @@
 // lib/pages/App/budgets.dart
 import 'package:flutter/material.dart';
-import 'package:frontend_flutter/pages/layouts/main_layout.dart';
+// ❌ HAPUS import MainLayout
 
 class Budgets extends StatelessWidget {
-  final String token; // ⭐ Pastikan ada parameter token
+  final String token;
 
   const Budgets({
     super.key,
-    required this.token, // ⭐ Required parameter
+    required this.token,
   });
 
   @override
   Widget build(BuildContext context) {
-    return MainLayout(
-      currentIndex: 3,
-      showBottomNav: true,
-      title: 'Statistik',
-      token: token, // ⭐ Kirim token ke MainLayout
-      backgroundColor: Colors.white,
-      child: const Center(
-        child: Text('budgets Page'),
+    // ⭐ LANGSUNG RETURN CONTENT dengan Scaffold
+    return Container(
+      color: Colors.white,
+      child: Center(
+        child: Text('Add Transaction Page'),
       ),
     );
-  }
+  }   
 }

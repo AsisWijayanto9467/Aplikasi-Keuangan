@@ -1,9 +1,7 @@
 // lib/pages/App/profile_page.dart
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // ⭐ Import untuk status bar
-import 'package:frontend_flutter/pages/layouts/main_layout.dart';
+import 'package:flutter/services.dart';
 import 'package:frontend_flutter/services/auth_service.dart';
-import 'package:intl/intl.dart';
 
 class ProfilePage extends StatefulWidget {
   final String token;
@@ -31,7 +29,7 @@ class _ProfilePageState extends State<ProfilePage> {
   String? _selectedGender;
   DateTime? _selectedBirthDate;
 
-  // ⭐ Daftar bulan untuk format tanggal
+  // Daftar bulan untuk format tanggal
   final List<String> _months = [
     'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
     'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
@@ -44,18 +42,18 @@ class _ProfilePageState extends State<ProfilePage> {
     _loadUserData();
   }
 
-  // ⭐ Set status bar style
+  // Set status bar style
   void _setStatusBarStyle() {
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.dark, // ⭐ Icon gelap untuk background putih
+        statusBarIconBrightness: Brightness.dark,
         statusBarBrightness: Brightness.light,
       ),
     );
   }
 
-  // ⭐ Format tanggal manual
+  // Format tanggal manual
   String _formatDate(DateTime date) {
     return '${date.day} ${_months[date.month - 1]} ${date.year}';
   }
@@ -222,7 +220,7 @@ class _ProfilePageState extends State<ProfilePage> {
       _emailController.dispose();
       _phoneController.dispose();
     }
-    // ⭐ Kembalikan status bar ke style default
+    // Kembalikan status bar ke style default
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
@@ -235,10 +233,9 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    return MainLayout(
-      currentIndex: -1,
-      showBottomNav: true,
-      backgroundColor: Colors.white, // ⭐ Background putih seperti LoginPage
+    // ⭐ GUNAKAN SCAFFOLD LANGSUNG, TANPA MAINLAYOUT
+    return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text(
           'Profil Saya',
@@ -327,7 +324,7 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
         ],
       ),
-      child: _isLoading
+      body: _isLoading
           ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,

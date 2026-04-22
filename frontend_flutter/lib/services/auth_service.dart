@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class AuthService {
-  static const String baseUrl = 'http://10.146.91.235:8000/api/v1/auth';
+  static const String baseUrl = 'http://192.168.101.6:8000/api/v1/auth';
 
   // Headers helper
   static Map<String, String> _headers({String? token}) {

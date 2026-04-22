@@ -1,97 +1,14 @@
-// lib/layouts/main_layout.dart
+// lib/pages/App/main_layout.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-// ⭐ IMPORT HALAMAN-HALAMAN YANG DIBUTUHKAN
 import 'package:frontend_flutter/pages/App/dashboard.dart';
 import 'package:frontend_flutter/pages/App/statistic_page.dart';
 import 'package:frontend_flutter/pages/App/transaction_page.dart';
 import 'package:frontend_flutter/pages/App/budgets.dart';
 import 'package:frontend_flutter/pages/App/transaction_history.dart';
 
-// ⭐ CUSTOM PAGE ROUTE DENGAN SLIDE TRANSITION
-class SlideRightRoute extends PageRouteBuilder {
-  final Widget page;
-
-  SlideRightRoute({required this.page})
-      : super(
-          pageBuilder: (context, animation, secondaryAnimation) => page,
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            const begin = Offset(1.0, 0.0); // Mulai dari kanan
-            const end = Offset.zero;
-            const curve = Curves.easeInOutCubic;
-
-            var tween = Tween(begin: begin, end: end).chain(
-              CurveTween(curve: curve),
-            );
-
-            var offsetAnimation = animation.drive(tween);
-
-            return SlideTransition(
-              position: offsetAnimation,
-              child: child,
-            );
-          },
-          transitionDuration: const Duration(milliseconds: 300), // Durasi animasi
-          reverseTransitionDuration: const Duration(milliseconds: 300),
-        );
-}
-
-// ⭐ CUSTOM PAGE ROUTE DENGAN SLIDE DARI KIRI (UNTUK BACK)
-class SlideLeftRoute extends PageRouteBuilder {
-  final Widget page;
-
-  SlideLeftRoute({required this.page})
-      : super(
-          pageBuilder: (context, animation, secondaryAnimation) => page,
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            const begin = Offset(-1.0, 0.0); // Mulai dari kiri
-            const end = Offset.zero;
-            const curve = Curves.easeInOutCubic;
-
-            var tween = Tween(begin: begin, end: end).chain(
-              CurveTween(curve: curve),
-            );
-
-            var offsetAnimation = animation.drive(tween);
-
-            return SlideTransition(
-              position: offsetAnimation,
-              child: child,
-            );
-          },
-          transitionDuration: const Duration(milliseconds: 300),
-          reverseTransitionDuration: const Duration(milliseconds: 300),
-        );
-}
-
-// ⭐ CUSTOM PAGE ROUTE DENGAN FADE + SCALE (UNTUK ADD BUTTON)
-class ScaleFadeRoute extends PageRouteBuilder {
-  final Widget page;
-
-  ScaleFadeRoute({required this.page})
-      : super(
-          pageBuilder: (context, animation, secondaryAnimation) => page,
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(
-              opacity: animation,
-              child: ScaleTransition(
-                scale: Tween<double>(begin: 0.9, end: 1.0).animate(
-                  CurvedAnimation(
-                    parent: animation,
-                    curve: Curves.easeOutBack,
-                  ),
-                ),
-                child: child,
-              ),
-            );
-          },
-          transitionDuration: const Duration(milliseconds: 350),
-          reverseTransitionDuration: const Duration(milliseconds: 300),
-        );
-}
-
 class MainLayout extends StatefulWidget {
-  final Widget child;
+  final Widget? child;
   final int currentIndex;
   final Function(int)? onNavigationChanged;
   final bool showBottomNav;
@@ -100,11 +17,11 @@ class MainLayout extends StatefulWidget {
   final bool extendBodyBehindAppBar;
   final Color? backgroundColor;
   final PreferredSizeWidget? appBar;
-  final String? token;
+  final String token; // ⭐ UBAH: jadi required, bukan optional
 
   const MainLayout({
     super.key,
-    required this.child,
+    this.child,
     this.currentIndex = 0,
     this.onNavigationChanged,
     this.showBottomNav = true,
@@ -113,7 +30,7 @@ class MainLayout extends StatefulWidget {
     this.extendBodyBehindAppBar = false,
     this.backgroundColor,
     this.appBar,
-    this.token,
+    required this.token, // ⭐ UBAH: required
   });
 
   @override
@@ -122,14 +39,30 @@ class MainLayout extends StatefulWidget {
 
 class _MainLayoutState extends State<MainLayout> {
   late int _selectedIndex;
-  int _previousIndex = 0; // ⭐ Simpan index sebelumnya untuk menentukan arah slide
+  late PageController _pageController;
+  late List<Widget> _pages;
 
   @override
   void initState() {
     super.initState();
     _selectedIndex = widget.currentIndex;
-    _previousIndex = widget.currentIndex;
+    _pageController = PageController(initialPage: _selectedIndex);
     _setStatusBarStyle();
+    _initializePages();
+  }
+
+  void _initializePages() {
+    // ⭐ Token sudah pasti ada karena required
+    _pages = [
+      DashboardPage(
+        token: widget.token,
+        skipCheckBalance: true,
+      ),
+      StatisticsPage(token: widget.token),
+      TransactionsPage(token: widget.token),
+      Budgets(token: widget.token),
+      TransactionsHistoryPage(token: widget.token), // ⭐ Sekarang aman
+    ];
   }
 
   @override
@@ -137,10 +70,21 @@ class _MainLayoutState extends State<MainLayout> {
     super.didUpdateWidget(oldWidget);
     if (widget.currentIndex != oldWidget.currentIndex) {
       setState(() {
-        _previousIndex = _selectedIndex;
         _selectedIndex = widget.currentIndex;
       });
+      _pageController.jumpToPage(widget.currentIndex);
     }
+    
+    // ⭐ Jika token berubah, re-initialize pages
+    if (widget.token != oldWidget.token) {
+      _initializePages();
+    }
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
   }
 
   void _setStatusBarStyle() {
@@ -154,140 +98,61 @@ class _MainLayoutState extends State<MainLayout> {
   }
 
   void _onItemTapped(int index) {
-    // ⭐ Jangan lakukan apa-apa jika index sama dengan current
     if (index == _selectedIndex) {
       print('ℹ️ Already on page index: $index');
       return;
     }
 
-    // ⭐ Simpan index sebelumnya
-    _previousIndex = _selectedIndex;
-    
     setState(() {
       _selectedIndex = index;
     });
+    
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
 
     if (widget.onNavigationChanged != null) {
       widget.onNavigationChanged!(index);
-    } else {
-      _handleDefaultNavigation(index);
-    }
-  }
-
-  void _handleDefaultNavigation(int index) {
-    // ⭐ Cek jika token tidak ada, tidak bisa navigasi
-    if (widget.token == null || widget.token!.isEmpty) {
-      print('⚠️ Token tidak tersedia untuk navigasi');
-      return;
-    }
-
-    print('🔄 Navigating from $_previousIndex to $index with token: ${widget.token}');
-
-    // ⭐ Tentukan arah slide berdasarkan index
-    // Jika index > previousIndex, slide dari kanan ke kiri (push forward)
-    // Jika index < previousIndex, slide dari kiri ke kanan (push back)
-    final bool isForward = index > _previousIndex;
-
-    switch (index) {
-      case 0:
-        // Navigasi ke Dashboard
-        if (isForward) {
-          Navigator.pushReplacement(
-            context,
-            SlideRightRoute(page: DashboardPage(
-              token: widget.token!,
-              skipCheckBalance: true,
-            )),
-          );
-        } else {
-          Navigator.pushReplacement(
-            context,
-            SlideLeftRoute(page: DashboardPage(
-              token: widget.token!,
-              skipCheckBalance: true,
-            )),
-          );
-        }
-        break;
-
-      case 1:
-        // Navigasi ke Statistics
-        if (isForward) {
-          Navigator.push(
-            context,
-            SlideRightRoute(page: StatisticsPage(token: widget.token!)),
-          );
-        } else {
-          Navigator.push(
-            context,
-            SlideLeftRoute(page: StatisticsPage(token: widget.token!)),
-          );
-        }
-        break;
-
-      case 2:
-        // Navigasi ke TransactionsPage (Add Transaction) - gunakan animasi scale+fade
-        Navigator.push(
-          context,
-          ScaleFadeRoute(page: TransactionsPage(token: widget.token!)),
-        );
-        break;
-
-      case 3:
-        // Navigasi ke Budgets
-        if (isForward) {
-          Navigator.push(
-            context,
-            SlideRightRoute(page: Budgets(token: widget.token!)),
-          );
-        } else {
-          Navigator.push(
-            context,
-            SlideLeftRoute(page: Budgets(token: widget.token!)),
-          );
-        }
-        break;
-
-      case 4:
-        // Navigasi ke TransactionsHistoryPage
-        if (isForward) {
-          Navigator.push(
-            context,
-            SlideRightRoute(page: TransactionsHistoryPage(token: widget.token!)),
-          );
-        } else {
-          Navigator.push(
-            context,
-            SlideLeftRoute(page: TransactionsHistoryPage(token: widget.token!)),
-          );
-        }
-        break;
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: widget.backgroundColor ?? Colors.grey.shade50,
-      extendBodyBehindAppBar: widget.extendBodyBehindAppBar,
-      appBar: widget.appBar ??
-          (widget.title != null
-              ? AppBar(
-                  title: Text(
-                    widget.title!,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F172A),
+        backgroundColor: widget.backgroundColor ?? Colors.grey.shade50,
+        extendBodyBehindAppBar: widget.extendBodyBehindAppBar,
+        appBar: widget.appBar ??
+            (widget.title != null
+                ? AppBar(
+                    title: Text(
+                      widget.title!,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0F172A),
+                      ),
                     ),
-                  ),
-                  actions: widget.actions,
-                  elevation: 0,
-                  backgroundColor: widget.backgroundColor ?? Colors.white,
-                  iconTheme: const IconThemeData(color: Color(0xFF1E3A8A)),
-                )
-              : null),
-      body: widget.child,
-      bottomNavigationBar: widget.showBottomNav ? _buildBottomNavigation() : null,
+                    actions: widget.actions,
+                    elevation: 0,
+                    backgroundColor: widget.backgroundColor ?? Colors.white,
+                    iconTheme: const IconThemeData(color: Color(0xFF1E3A8A)),
+                  )
+                : null),
+        body: widget.child ?? PageView(
+          controller: _pageController,
+          physics: const NeverScrollableScrollPhysics(),
+          children: _pages,
+          onPageChanged: (index) {
+            setState(() {
+              _selectedIndex = index;
+            });
+            if (widget.onNavigationChanged != null) {
+              widget.onNavigationChanged!(index);
+            }
+          },
+        ),
+        bottomNavigationBar: widget.showBottomNav ? _buildBottomNavigation() : null,
     );
   }
 

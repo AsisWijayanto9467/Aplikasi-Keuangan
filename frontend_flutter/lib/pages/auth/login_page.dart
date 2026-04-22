@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // ⭐ TAMBAHKAN IMPORT INI
 import 'package:frontend_flutter/pages/auth/register_page.dart';
-import 'package:frontend_flutter/pages/auth/set_pin_page.dart';
-import 'package:frontend_flutter/pages/auth/verify_pin_page.dart';
 import 'package:frontend_flutter/services/auth_service.dart';
 import 'dart:async';
 
@@ -19,6 +18,24 @@ class _LoginPageState extends State<LoginPage> {
 
   bool _isLoading = false;
   bool _obscurePassword = true;
+
+  @override
+  void initState() {
+    super.initState();
+    // ⭐ ATUR STATUS BAR MENJADI GELAP (IKON HITAM) AGAR TERLIHAT DI BACKGROUND PUTIH
+    _setStatusBarDark();
+  }
+
+  // ⭐ FUNGSI UNTUK MENGATUR STATUS BAR STYLE
+  void _setStatusBarDark() {
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark, // IKON HITAM (Android)
+        statusBarBrightness: Brightness.light,     // TEKS HITAM (iOS)
+      ),
+    );
+  }
 
   @override
   void dispose() {
@@ -162,6 +179,12 @@ class _LoginPageState extends State<LoginPage> {
     final size = MediaQuery.of(context).size;
     final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
     final isKeyboardVisible = keyboardHeight > 0;
+
+    // ⭐ PASTIKAN STATUS BAR STYLE TETAP KONSISTEN SAAT WIDGET DI-BUILD ULANG
+    // Ini penting untuk kasus ketika user kembali dari halaman lain atau keyboard muncul
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _setStatusBarDark();
+    });
 
     return Scaffold(
       backgroundColor: Colors.white,

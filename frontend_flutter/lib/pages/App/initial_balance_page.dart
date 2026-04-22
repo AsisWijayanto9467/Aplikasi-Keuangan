@@ -283,7 +283,7 @@ class _InitialBalancePageState extends State<InitialBalancePage> {
 
         Navigator.pushReplacementNamed(
           context,
-          '/dashboard',
+          '/home',
           arguments: {
             'token': widget.token,
             'skipCheckBalance': true,

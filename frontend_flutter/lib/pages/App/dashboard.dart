@@ -1,8 +1,8 @@
-// lib/pages/App/dashboard.dart (Updated)
+// lib/pages/App/dashboard.dart
 import 'package:flutter/material.dart';
+import 'package:frontend_flutter/main.dart';
 import 'package:frontend_flutter/pages/auth/login_page.dart';
 import 'package:frontend_flutter/pages/App/initial_balance_page.dart';
-import 'package:frontend_flutter/pages/layouts/main_layout.dart';
 import 'package:frontend_flutter/services/auth_service.dart';
 import 'package:frontend_flutter/services/transaction_service.dart';
 
@@ -20,7 +20,13 @@ class DashboardPage extends StatefulWidget {
   State<DashboardPage> createState() => _DashboardPageState();
 }
 
-class _DashboardPageState extends State<DashboardPage> {
+class _DashboardPageState extends State<DashboardPage>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  final PageController _pageController = PageController();
+
   bool _isLoading = false;
   bool _isCheckingBalance = true;
   String _userName = 'Pengguna';
@@ -31,14 +37,9 @@ class _DashboardPageState extends State<DashboardPage> {
   double _income = 5750000.00;
   double _expense = 3250000.00;
 
-  // Flag untuk mencegah multiple redirect
   bool _hasNavigated = false;
-
-  // Untuk PageView (geser card)
-  final PageController _pageController = PageController();
   int _currentCardIndex = 0;
 
-  // Bulan dan Tahun
   final List<String> _months = [
     'Januari',
     'Februari',
@@ -62,6 +63,13 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   void initState() {
     super.initState();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+
     _loadUserData();
 
     if (!widget.skipCheckBalance) {
@@ -83,28 +91,19 @@ class _DashboardPageState extends State<DashboardPage> {
 
   double _parseBalance(dynamic balanceData) {
     if (balanceData == null) return 0.0;
-
-    if (balanceData is int) {
-      return balanceData.toDouble();
-    } else if (balanceData is double) {
-      return balanceData;
-    } else if (balanceData is String) {
-      return double.tryParse(balanceData) ?? 0.0;
-    } else {
-      try {
-        return double.parse(balanceData.toString());
-      } catch (e) {
-        return 0.0;
-      }
+    if (balanceData is int) return balanceData.toDouble();
+    if (balanceData is double) return balanceData;
+    if (balanceData is String) return double.tryParse(balanceData) ?? 0.0;
+    try {
+      return double.parse(balanceData.toString());
+    } catch (e) {
+      return 0.0;
     }
   }
 
   Future<void> _loadBalanceDirectly() async {
     try {
-      print('📊 Loading balance directly...');
       final response = await TransactionService.checkBalance(widget.token);
-      print('📊 Balance response: $response');
-
       if (mounted) {
         setState(() {
           _balance = _parseBalance(response['balance']);
@@ -117,22 +116,15 @@ class _DashboardPageState extends State<DashboardPage> {
 
   Future<void> _checkInitialBalance() async {
     if (_hasNavigated) return;
-
     setState(() => _isCheckingBalance = true);
 
     const maxRetries = 2;
-
     for (int i = 0; i < maxRetries; i++) {
       try {
-        print('🔄 Checking balance - Attempt ${i + 1}/$maxRetries');
-
         final response = await TransactionService.checkBalance(widget.token);
-        print('📊 Check Balance Response: $response');
-
         if (!mounted) return;
 
         final isInitialized = response['initialized'] ?? false;
-
         if (isInitialized == true) {
           setState(() {
             _isBalanceInitialized = true;
@@ -144,14 +136,10 @@ class _DashboardPageState extends State<DashboardPage> {
 
         if (i < maxRetries - 1) {
           await Future.delayed(const Duration(milliseconds: 800));
-          continue;
         }
       } catch (e) {
-        print('❌ Check Balance Error (Attempt ${i + 1}): $e');
-
         if (i < maxRetries - 1) {
           await Future.delayed(const Duration(milliseconds: 800));
-          continue;
         }
       }
     }
@@ -161,9 +149,7 @@ class _DashboardPageState extends State<DashboardPage> {
         _isCheckingBalance = false;
         _isBalanceInitialized = false;
       });
-
       _hasNavigated = true;
-
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -175,123 +161,69 @@ class _DashboardPageState extends State<DashboardPage> {
 
   Future<void> _loadUserData() async {
     try {
-      print('🔍 Fetching user data with token: ${widget.token}');
       final response = await AuthService.getUser(widget.token);
-      print('📊 User Data Response: $response');
-
       if (response['success'] == true && response['data'] != null) {
         final userData = response['data'];
-        print('✅ User data loaded: ${userData['name']}');
-
         if (mounted) {
           setState(() {
             _userName = userData['name'] ?? 'Pengguna';
           });
         }
-      } else {
-        print('❌ Failed to load user data: ${response['message']}');
-        setState(() {
-          _userName = 'Pengguna';
-        });
       }
     } catch (e) {
       print('❌ Load User Data Error: $e');
-      setState(() {
-        _userName = 'Pengguna';
-      });
     }
   }
 
   Future<void> _handleLogout() async {
     final shouldLogout = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-        ),
-        title: const Row(
-          children: [
-            Icon(Icons.logout_rounded, color: Color(0xFFDC2626), size: 28),
-            SizedBox(width: 12),
-            Text(
-              'Konfirmasi Logout',
-              style: TextStyle(fontWeight: FontWeight.w600),
+      builder:
+          (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
             ),
-          ],
-        ),
-        content: const Text(
-          'Apakah Anda yakin ingin keluar dari akun?',
-          style: TextStyle(color: Colors.grey, height: 1.5),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.grey.shade600,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            title: const Row(
+              children: [
+                Icon(Icons.logout_rounded, color: Color(0xFFDC2626), size: 28),
+                SizedBox(width: 12),
+                Text(
+                  'Konfirmasi Logout',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ],
             ),
-            child: const Text('Batal'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFDC2626),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
+            content: const Text(
+              'Apakah Anda yakin ingin keluar dari akun?',
+              style: TextStyle(color: Colors.grey, height: 1.5),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Batal'),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            ),
-            child: const Text('Logout'),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFDC2626),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: const Text('Logout'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
 
     if (shouldLogout != true) return;
-
     setState(() => _isLoading = true);
 
     try {
       final response = await AuthService.logout(widget.token);
-
       if (mounted) {
         if (response['message'] == 'Logout berhasil') {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(
-                      Icons.check_circle,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Text(
-                      "Logout Berhasil",
-                      style: TextStyle(fontWeight: FontWeight.w500),
-                    ),
-                  ),
-                ],
-              ),
-              backgroundColor: const Color(0xFF059669),
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-              margin: const EdgeInsets.all(16),
-              duration: const Duration(seconds: 2),
-            ),
-          );
-
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(builder: (context) => const LoginPage()),
@@ -313,36 +245,33 @@ class _DashboardPageState extends State<DashboardPage> {
   void _showErrorDialog(String message) {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-        ),
-        title: const Row(
-          children: [
-            Icon(
-              Icons.error_outline_rounded,
-              color: Color(0xFFDC2626),
-              size: 28,
+      builder:
+          (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
             ),
-            SizedBox(width: 12),
-            Text('Error', style: TextStyle(fontWeight: FontWeight.w600)),
-          ],
-        ),
-        content: Text(
-          message,
-          style: TextStyle(color: Colors.grey.shade700, height: 1.5),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF1E3A8A),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            title: const Row(
+              children: [
+                Icon(
+                  Icons.error_outline_rounded,
+                  color: Color(0xFFDC2626),
+                  size: 28,
+                ),
+                SizedBox(width: 12),
+                Text('Error', style: TextStyle(fontWeight: FontWeight.w600)),
+              ],
             ),
-            child: const Text('OK'),
+            content: Text(
+              message,
+              style: TextStyle(color: Colors.grey.shade700, height: 1.5),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('OK'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
@@ -350,48 +279,10 @@ class _DashboardPageState extends State<DashboardPage> {
     return 'Rp ${amount.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}';
   }
 
-  void _handleNavigation(int index) {
-    switch (index) {
-      case 0:
-        Navigator.pushNamed(
-          context,
-          '/dashboard',
-          arguments: {'token': widget.token},
-        );
-        break;
-      case 1:
-        Navigator.pushNamed(
-          context,
-          '/statistic',
-          arguments: {'token': widget.token},
-        );
-        break;
-      case 2:
-        Navigator.pushNamed(
-          context,
-          '/add-transaction',
-          arguments: {'token': widget.token},
-        );
-        break;
-      case 3:
-        Navigator.pushNamed(
-          context,
-          '/budgets',
-          arguments: {'token': widget.token},
-        );
-        break;
-      case 4:
-        Navigator.pushNamed(
-          context,
-          '/transaction-history',
-          arguments: {'token': widget.token},
-        );
-        break;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
+    super.build(context);
+
     if (_isCheckingBalance) {
       return _buildLoadingScreen('Memeriksa data...');
     }
@@ -400,30 +291,116 @@ class _DashboardPageState extends State<DashboardPage> {
       return _buildLoadingScreen('Menyiapkan akun Anda...');
     }
 
-    return MainLayout(
-      currentIndex: 0,
-      onNavigationChanged: _handleNavigation,
-      showBottomNav: true,
-      token: widget.token, // ⭐ TAMBAHKAN TOKEN
-      child: Column(
-        children: [
-          // ⭐ BAGIAN ATAS DENGAN BACKGROUND BIRU (FIXED)
-          _buildTopBlueSection(),
+    // ⭐ GUNAKAN CustomScrollView LANGSUNG (bukan NestedScrollView)
+    return CustomScrollView(
+      slivers: [
+        // Header Section
+        SliverToBoxAdapter(child: _buildTopBlueSection()),
 
-          // ⭐ FITUR CEPAT (FIXED - TIDAK SCROLL)
-          _buildQuickFeatures(),
+        // Quick Features
+        SliverToBoxAdapter(child: _buildQuickFeatures()),
 
-          // ⭐ TRANSAKSI TERBARU (HEADER FIXED, LIST SCROLLABLE)
-          Expanded(child: _buildRecentTransactions()),
-        ],
-      ),
+        // Recent Transactions Header
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            child: Row(
+              children: [
+                const Text(
+                  'Transaksi Terbaru',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+                const Spacer(),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder:
+                            (context) =>
+                                HomePage(token: widget.token, initialIndex: 4),
+                      ),
+                    );
+                  },
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFF1E3A8A),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                  ),
+                  child: const Text(
+                    'Lihat Semua',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 11),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        // Transaction List
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          sliver: SliverList(
+            delegate: SliverChildListDelegate([
+              _buildTransactionItem(
+                icon: Icons.shopping_bag_outlined,
+                title: 'Belanja Bulanan',
+                category: 'Belanja',
+                date: 'Hari ini',
+                amount: -350000,
+                iconColor: const Color(0xFFEF4444),
+              ),
+              _buildTransactionItem(
+                icon: Icons.arrow_downward_rounded,
+                title: 'Transfer Masuk',
+                category: 'Transfer',
+                date: 'Kemarin',
+                amount: 1500000,
+                iconColor: const Color(0xFF10B981),
+              ),
+              _buildTransactionItem(
+                icon: Icons.receipt_long_rounded,
+                title: 'Tagihan Listrik',
+                category: 'Tagihan',
+                date: '18/4/2026',
+                amount: -450000,
+                iconColor: const Color(0xFFF59E0B),
+              ),
+              _buildTransactionItem(
+                icon: Icons.restaurant_rounded,
+                title: 'Makan Siang',
+                category: 'Makanan',
+                date: '18/4/2026',
+                amount: -85000,
+                iconColor: const Color(0xFFF97316),
+              ),
+              _buildTransactionItem(
+                icon: Icons.local_gas_station_rounded,
+                title: 'Bensin',
+                category: 'Transportasi',
+                date: '17/4/2026',
+                amount: -200000,
+                iconColor: const Color(0xFF8B5CF6),
+              ),
+              // Bottom padding
+              const SizedBox(height: 100),
+            ]),
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildLoadingScreen(String message) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Center(
+    return SizedBox.expand(
+      // ⬅️ kunci: memenuhi seluruh area
+      child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -460,7 +437,6 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  // ⭐ BAGIAN ATAS DENGAN BACKGROUND BIRU PENUH
   Widget _buildTopBlueSection() {
     return Container(
       decoration: const BoxDecoration(
@@ -492,14 +468,11 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  // Update method _buildHeader() di DashboardPage
   Widget _buildHeader() {
     return Row(
       children: [
-        // ⭐ KLIK PROFILE AKAN NGE-NAVIGASI KE PROFILE PAGE
         GestureDetector(
           onTap: () {
-            // Navigasi ke Profile Page
             Navigator.pushNamed(
               context,
               '/profile',
@@ -521,7 +494,6 @@ class _DashboardPageState extends State<DashboardPage> {
                   radius: 22,
                   backgroundColor: Colors.white.withOpacity(0.15),
                   child: Text(
-                    // ⭐ AMBIL HURUF PERTAMA DAN UBAH KE UPPERCASE
                     _userName.isNotEmpty ? _userName[0].toUpperCase() : 'U',
                     style: const TextStyle(
                       fontSize: 18,
@@ -554,8 +526,6 @@ class _DashboardPageState extends State<DashboardPage> {
           ),
         ),
         const Spacer(),
-
-        // ⭐ TOMBOL NOTIFIKASI
         Container(
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(0.12),
@@ -563,10 +533,7 @@ class _DashboardPageState extends State<DashboardPage> {
             border: Border.all(color: Colors.white.withOpacity(0.15), width: 1),
           ),
           child: IconButton(
-            onPressed: () {
-              // Navigasi ke halaman notifikasi (opsional)
-              // Navigator.pushNamed(context, '/notifications');
-            },
+            onPressed: () {},
             icon: Stack(
               children: [
                 const Icon(
@@ -594,8 +561,6 @@ class _DashboardPageState extends State<DashboardPage> {
             ),
           ),
         ),
-
-        // ⭐ TOMBOL LOGOUT (DIPINDAHKAN KE SINI)
         const SizedBox(width: 8),
         Container(
           decoration: BoxDecoration(
@@ -797,9 +762,10 @@ class _DashboardPageState extends State<DashboardPage> {
                 Container(
                   padding: const EdgeInsets.all(3),
                   decoration: BoxDecoration(
-                    color: isPositive
-                        ? const Color(0xFF10B981).withOpacity(0.4)
-                        : const Color(0xFFEF4444).withOpacity(0.4),
+                    color:
+                        isPositive
+                            ? const Color(0xFF10B981).withOpacity(0.4)
+                            : const Color(0xFFEF4444).withOpacity(0.4),
                     borderRadius: BorderRadius.circular(5),
                   ),
                   child: Icon(
@@ -886,16 +852,16 @@ class _DashboardPageState extends State<DashboardPage> {
                   color: Colors.white.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: Row(
+                child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.check_circle_rounded,
                       color: Color(0xFF10B981),
                       size: 10,
                     ),
-                    const SizedBox(width: 4),
-                    const Text(
+                    SizedBox(width: 4),
+                    Text(
                       'Tersedia',
                       style: TextStyle(fontSize: 9, color: Colors.white70),
                     ),
@@ -942,7 +908,6 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  // ⭐ FITUR CEPAT - FIXED (TIDAK SCROLL)
   Widget _buildQuickFeatures() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -1033,97 +998,6 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  // ⭐ TRANSAKSI TERBARU - HEADER FIXED, LIST SCROLLABLE
-  Widget _buildRecentTransactions() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header Fixed
-          Row(
-            children: [
-              const Text(
-                'Transaksi Terbaru',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF0F172A),
-                ),
-              ),
-              const Spacer(),
-              TextButton(
-                onPressed: () => _handleNavigation(4),
-                style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xFF1E3A8A),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                ),
-                child: const Text(
-                  'Lihat Semua',
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 11),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-
-          // List Scrollable
-          Expanded(
-            child: ListView(
-              physics: const BouncingScrollPhysics(),
-              children: [
-                _buildTransactionItem(
-                  icon: Icons.shopping_bag_outlined,
-                  title: 'Belanja Bulanan',
-                  category: 'Belanja',
-                  date: 'Hari ini',
-                  amount: -350000,
-                  iconColor: const Color(0xFFEF4444),
-                ),
-                _buildTransactionItem(
-                  icon: Icons.arrow_downward_rounded,
-                  title: 'Transfer Masuk',
-                  category: 'Transfer',
-                  date: 'Kemarin',
-                  amount: 1500000,
-                  iconColor: const Color(0xFF10B981),
-                ),
-                _buildTransactionItem(
-                  icon: Icons.receipt_long_rounded,
-                  title: 'Tagihan Listrik',
-                  category: 'Tagihan',
-                  date: '18/4/2026',
-                  amount: -450000,
-                  iconColor: const Color(0xFFF59E0B),
-                ),
-                _buildTransactionItem(
-                  icon: Icons.restaurant_rounded,
-                  title: 'Makan Siang',
-                  category: 'Makanan',
-                  date: '18/4/2026',
-                  amount: -85000,
-                  iconColor: const Color(0xFFF97316),
-                ),
-                _buildTransactionItem(
-                  icon: Icons.local_gas_station_rounded,
-                  title: 'Bensin',
-                  category: 'Transportasi',
-                  date: '17/4/2026',
-                  amount: -200000,
-                  iconColor: const Color(0xFF8B5CF6),
-                ),
-                const SizedBox(height: 8),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildTransactionItem({
     required IconData icon,
     required String title,
@@ -1205,9 +1079,10 @@ class _DashboardPageState extends State<DashboardPage> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: isIncome
-                  ? const Color(0xFF10B981).withOpacity(0.08)
-                  : const Color(0xFFEF4444).withOpacity(0.08),
+              color:
+                  isIncome
+                      ? const Color(0xFF10B981).withOpacity(0.08)
+                      : const Color(0xFFEF4444).withOpacity(0.08),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
@@ -1215,9 +1090,10 @@ class _DashboardPageState extends State<DashboardPage> {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: isIncome
-                    ? const Color(0xFF10B981)
-                    : const Color(0xFFEF4444),
+                color:
+                    isIncome
+                        ? const Color(0xFF10B981)
+                        : const Color(0xFFEF4444),
               ),
             ),
           ),

@@ -23,21 +23,22 @@ class TransactionController extends Controller
             $query = Transaction::with('category')
                 ->where('user_id', $user->id);
 
-            // 🔍 FILTER TYPE (income / expense)
             if ($request->has('type')) {
                 $query->where('type', $request->type);
             }
 
-            // 🔍 FILTER BULAN & TAHUN
-            if ($request->has('month') && $request->has('year')) {
-                $query->whereMonth('date', $request->month)
-                    ->whereYear('date', $request->year);
+            if ($request->has('category_id')) {
+                $query->where('category_id', $request->category_id);
             }
 
-            // 🔍 SORT TERBARU
-            $query->orderBy('date', 'desc');
+            if ($request->has('start_date')) {
+                $query->whereDate('date', '>=', $request->start_date);
+            }
+            if ($request->has('end_date')) {
+                $query->whereDate('date', '<=', $request->end_date);
+            }
 
-            // 📄 PAGINATION (10 data per halaman)
+            $query->orderBy('date', 'desc');
             $transactions = $query->paginate(10);
 
             return response()->json([
@@ -52,6 +53,149 @@ class TransactionController extends Controller
         }
     }
 
+    public function statistics(Request $request)
+    {
+        try {
+            $user = $request->user();
+            $period = $request->get('period', 'month'); // month, week, year
+            $year = $request->get('year', date('Y'));
+            $month = $request->get('month', date('m'));
+
+            // Query untuk data kategori dengan total amount
+            $categoryStats = Transaction::with('category')
+                ->where('user_id', $user->id)
+                ->whereYear('date', $year)
+                ->when($period == 'month', function($query) use ($month) {
+                    return $query->whereMonth('date', $month);
+                })
+                ->selectRaw('category_id, type, SUM(amount) as total_amount')
+                ->groupBy('category_id', 'type')
+                ->get();
+
+            // Format data untuk pie chart (pengeluaran per kategori)
+            $expenseByCategory = [];
+            $incomeByCategory = [];
+
+            foreach ($categoryStats as $stat) {
+                $categoryName = $stat->category->name ?? 'Lainnya';
+                $categoryIcon = $stat->category->icon ?? '📊';
+                $categoryColor = $stat->category->color ?? '#64748B';
+
+                if ($stat->type == 'expense') {
+                    $expenseByCategory[] = [
+                        'category' => $categoryName,
+                        'icon' => $categoryIcon,
+                        'color' => $categoryColor,
+                        'amount' => (float) $stat->total_amount
+                    ];
+                } else {
+                    $incomeByCategory[] = [
+                        'category' => $categoryName,
+                        'icon' => $categoryIcon,
+                        'color' => $categoryColor,
+                        'amount' => (float) $stat->total_amount
+                    ];
+                }
+            }
+
+            // Query untuk bar chart (trend harian/bulanan)
+            $trendData = [];
+
+            if ($period == 'month') {
+                // Data per hari dalam bulan ini
+                $daysInMonth = cal_days_in_month(CAL_GREGORIAN, $month, $year);
+                for ($day = 1; $day <= $daysInMonth; $day++) {
+                    $date = sprintf('%s-%s-%02d', $year, $month, $day);
+
+                    $dailyIncome = Transaction::where('user_id', $user->id)
+                        ->whereDate('date', $date)
+                        ->where('type', 'income')
+                        ->sum('amount');
+
+                    $dailyExpense = Transaction::where('user_id', $user->id)
+                        ->whereDate('date', $date)
+                        ->where('type', 'expense')
+                        ->sum('amount');
+
+                    $trendData[] = [
+                        'label' => (string) $day,
+                        'income' => (float) $dailyIncome,
+                        'expense' => (float) $dailyExpense
+                    ];
+                }
+            } else {
+                // Data per bulan dalam tahun ini
+                for ($monthNum = 1; $monthNum <= 12; $monthNum++) {
+                    $monthlyIncome = Transaction::where('user_id', $user->id)
+                        ->whereYear('date', $year)
+                        ->whereMonth('date', $monthNum)
+                        ->where('type', 'income')
+                        ->sum('amount');
+
+                    $monthlyExpense = Transaction::where('user_id', $user->id)
+                        ->whereYear('date', $year)
+                        ->whereMonth('date', $monthNum)
+                        ->where('type', 'expense')
+                        ->sum('amount');
+
+                    $monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+
+                    $trendData[] = [
+                        'label' => $monthNames[$monthNum - 1],
+                        'income' => (float) $monthlyIncome,
+                        'expense' => (float) $monthlyExpense
+                    ];
+                }
+            }
+
+            // Total summary
+            $totalIncome = Transaction::where('user_id', $user->id)
+                ->whereYear('date', $year)
+                ->when($period == 'month', function($query) use ($month) {
+                    return $query->whereMonth('date', $month);
+                })
+                ->where('type', 'income')
+                ->sum('amount');
+
+            $totalExpense = Transaction::where('user_id', $user->id)
+                ->whereYear('date', $year)
+                ->when($period == 'month', function($query) use ($month) {
+                    return $query->whereMonth('date', $month);
+                })
+                ->where('type', 'expense')
+                ->sum('amount');
+
+            // Persentase pengeluaran vs pemasukan
+            $totalTransactions = $totalIncome + $totalExpense;
+            $incomePercentage = $totalTransactions > 0 ? ($totalIncome / $totalTransactions) * 100 : 0;
+            $expensePercentage = $totalTransactions > 0 ? ($totalExpense / $totalTransactions) * 100 : 0;
+
+            return response()->json([
+                'message' => 'Data statistik',
+                'data' => [
+                    'period' => $period,
+                    'year' => (int) $year,
+                    'month' => $period == 'month' ? (int) $month : null,
+                    'summary' => [
+                        'total_income' => (float) $totalIncome,
+                        'total_expense' => (float) $totalExpense,
+                        'net_cashflow' => (float) ($totalIncome - $totalExpense),
+                        'income_percentage' => round($incomePercentage, 2),
+                        'expense_percentage' => round($expensePercentage, 2)
+                    ],
+                    'expense_by_category' => $expenseByCategory,
+                    'income_by_category' => $incomeByCategory,
+                    'trend_data' => $trendData
+                ]
+            ]);
+
+        } catch (\Throwable $th) {
+            return response()->json([
+                "message" => "Server Error",
+                "errors" => $th->getMessage()
+            ], 500);
+        }
+    }
     /**
      * Show the form for creating a new resource.
      */
@@ -85,10 +229,8 @@ class TransactionController extends Controller
 
             $user = $request->user();
 
-            // 🔍 Ambil kategori
             $category = Category::find($request->category_id);
 
-            // ❌ Validasi: category harus sesuai type
             if ($category->type !== $request->type) {
                 return response()->json([
                     'message' => 'Tipe kategori tidak sesuai dengan transaksi'
@@ -205,7 +347,6 @@ class TransactionController extends Controller
 
             $user = $request->user();
 
-            // 🔍 Ambil transaksi milik user
             $transaction = Transaction::where('id', $id)
                 ->where('user_id', $user->id)
                 ->first();
@@ -216,10 +357,8 @@ class TransactionController extends Controller
                 ], 404);
             }
 
-            // 🔍 Ambil kategori
             $category = Category::find($request->category_id);
 
-            // ❌ Validasi category vs type
             if ($category->type !== $request->type) {
                 return response()->json([
                     'message' => 'Tipe kategori tidak sesuai'
@@ -237,7 +376,6 @@ class TransactionController extends Controller
                     $balance->balance += $transaction->amount;
                 }
 
-                // ✏️ update transaksi
                 $transaction->update([
                     'category_id' => $request->category_id,
                     'title' => $request->title,
@@ -248,7 +386,6 @@ class TransactionController extends Controller
                     'date' => $request->date,
                 ]);
 
-                // ➕ apply transaksi baru
                 if ($request->type == 'income') {
                     $balance->balance += $request->amount;
                 } else {
@@ -278,7 +415,6 @@ class TransactionController extends Controller
         try {
             $user = $request->user();
 
-            // 🔍 Ambil transaksi milik user
             $transaction = Transaction::where('id', $id)
                 ->where('user_id', $user->id)
                 ->first();

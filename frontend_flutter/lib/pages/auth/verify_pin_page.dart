@@ -32,6 +32,13 @@ class _VerifyPinPageState extends State<VerifyPinPage> {
 
   @override
   void initState() {
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+      ),
+    );
     super.initState();
     // Listener untuk PIN
     for (var controller in _pinControllers) {
@@ -160,6 +167,9 @@ class _VerifyPinPageState extends State<VerifyPinPage> {
 
   // ⭐ METHOD BARU: Cek balance sebelum navigasi
   Future<void> _checkBalanceAndNavigate() async {
+    FocusScope.of(context).unfocus();
+    await Future.delayed(const Duration(milliseconds: 300));
+
     try {
       print('🔍 Checking balance status before navigation...');
 
@@ -176,7 +186,7 @@ class _VerifyPinPageState extends State<VerifyPinPage> {
       if (isInitialized) {
         Navigator.pushNamedAndRemoveUntil(
           context,
-          '/dashboard',
+          '/home',
           (route) => false,
           arguments: {'token': widget.token, 'skipCheckBalance': true},
         );

@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class TransactionService {
-  static const String baseUrl = 'http://10.146.91.235:8000/api/v1';
+  static const String baseUrl = 'http://192.168.101.6:8000/api/v1';
 
   /// Cek apakah user sudah set saldo awal
    static Future<Map<String, dynamic>> checkBalance(String token) async {
@@ -78,17 +78,18 @@ class TransactionService {
   /// Get list transaksi dengan filter & pagination
   static Future<Map<String, dynamic>> getTransactions({
     required String token,
-    String? type,           // 'income' atau 'expense'
-    int? month,
-    int? year,
+    String? type,
+    String? categoryId,
+    String? startDate,
+    String? endDate,
     int page = 1,
   }) async {
-    // Build query parameters
     final Map<String, String> queryParams = {'page': page.toString()};
     
     if (type != null) queryParams['type'] = type;
-    if (month != null) queryParams['month'] = month.toString();
-    if (year != null) queryParams['year'] = year.toString();
+    if (categoryId != null) queryParams['category_id'] = categoryId;
+    if (startDate != null) queryParams['start_date'] = startDate;
+    if (endDate != null) queryParams['end_date'] = endDate;
 
     final uri = Uri.parse('$baseUrl/transactions')
         .replace(queryParameters: queryParams);
@@ -118,6 +119,45 @@ class TransactionService {
     );
 
     return jsonDecode(response.body);
+  }
+
+  static Future<Map<String, dynamic>> getStatistics({
+    required String token,
+    String period = 'month', // 'week', 'month', 'year'
+    int? year,
+    int? month,
+  }) async {
+    try {
+      final Map<String, String> queryParams = {'period': period};
+      
+      if (year != null) queryParams['year'] = year.toString();
+      if (month != null) queryParams['month'] = month.toString();
+
+      final uri = Uri.parse('$baseUrl/statistics')
+          .replace(queryParameters: queryParams);
+
+      print('=== GET STATISTICS ===');
+      print('URL: $uri');
+
+      final response = await http.get(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 15));
+
+      print('Response Status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception('Failed to load statistics: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Get Statistics Error: $e');
+      rethrow;
+    }
   }
 
   /// Create transaksi baru

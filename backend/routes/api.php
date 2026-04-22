@@ -28,6 +28,8 @@ Route::prefix("v1")->group(function() {
     });
 
     Route::middleware(['auth:sanctum', 'balance'], )->group(function () {
+        Route::get('/statistics', [TransactionController::class, 'statistics'])->middleware('auth:sanctum');
+        
         Route::prefix("transactions")->group(function() {
             Route::get('/', [TransactionController::class, 'index']);
             Route::post('/', [TransactionController::class, 'store']);
