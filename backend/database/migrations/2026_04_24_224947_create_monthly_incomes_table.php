@@ -11,14 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('budgets', function (Blueprint $table) {
+        Schema::create('monthly_incomes', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->foreignId('category_id')->constrained()->onDelete('cascade');
-            $table->decimal('limit_amount', 12, 2);
+            $table->decimal('total_income', 12, 2); // Total pemasukan bulan ini
             $table->integer('month');
             $table->integer('year');
-            $table->unique(['user_id', 'category_id', 'month', 'year']);
+            $table->unique(['user_id', 'month', 'year']);
             $table->timestamps();
         });
     }
@@ -28,6 +27,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('budgets');
+        Schema::dropIfExists('monthly_incomes');
     }
 };

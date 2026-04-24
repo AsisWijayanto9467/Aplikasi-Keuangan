@@ -5,7 +5,6 @@ use App\Http\Controllers\API\BalanceController;
 use App\Http\Controllers\API\BudgetController;
 use App\Http\Controllers\API\CategoryController;
 use App\Http\Controllers\API\TransactionController;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix("v1")->group(function() {
@@ -29,7 +28,7 @@ Route::prefix("v1")->group(function() {
 
     Route::middleware(['auth:sanctum', 'balance'], )->group(function () {
         Route::get('/statistics', [TransactionController::class, 'statistics'])->middleware('auth:sanctum');
-        
+
         Route::prefix("transactions")->group(function() {
             Route::get('/', [TransactionController::class, 'index']);
             Route::post('/', [TransactionController::class, 'store']);
@@ -52,6 +51,7 @@ Route::prefix("v1")->group(function() {
             Route::get('/{id}', [BudgetController::class, 'show']);
             Route::put('/{id}', [BudgetController::class, 'update']);
             Route::delete('/{id}', [BudgetController::class, 'destroy']);
+            Route::get('/status', [BudgetController::class, 'checkStatus']);
         });
     });
 });

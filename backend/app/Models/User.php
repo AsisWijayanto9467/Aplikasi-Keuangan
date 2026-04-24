@@ -55,7 +55,46 @@ class User extends Authenticatable
         return $this->hasMany(Budget::class);
     }
 
+    public function monthlyIncomes() {
+        return $this->hasMany(MonthlyIncome::class);
+    }
+
+    public function budgetTransactions()
+    {
+        return $this->hasMany(BudgetTransaction::class);
+    }
+
     public function balance() {
         return $this->hasOne(Balance::class);
+    }
+
+    public function getCurrentMonthIncomeAttribute()
+    {
+        return $this->monthlyIncomes()
+            ->where('month', now()->month)
+            ->where('year', now()->year)
+            ->first();
+    }
+
+    /**
+     * Get current month's budgets
+     */
+    public function getCurrentMonthBudgetsAttribute()
+    {
+        return $this->budgets()
+            ->where('month', now()->month)
+            ->where('year', now()->year)
+            ->get();
+    }
+
+    /**
+     * Get today's transactions
+     */
+    public function getTodayTransactionsAttribute()
+    {
+        return $this->budgetTransactions()
+            ->whereDate('date', now()->format('Y-m-d'))
+            ->latest()
+            ->get();
     }
 }

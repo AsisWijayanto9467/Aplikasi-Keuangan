@@ -21,4 +21,17 @@ class Category extends Model
     public function budgets() {
         return $this->hasMany(Budget::class);
     }
+
+    public function scopeExpense($query)
+    {
+        return $query->where('type', 'expense');
+    }
+
+    /**
+     * Scope: Filter hanya income categories
+     */
+    public function scopeIncome($query)
+    {
+        return $query->where('type', 'income');
+    }
 }
