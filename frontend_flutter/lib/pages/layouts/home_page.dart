@@ -1,9 +1,9 @@
 // lib/pages/App/home_page.dart
 import 'package:flutter/material.dart';
+import 'package:frontend_flutter/pages/App/budgets.dart';
 import 'package:frontend_flutter/pages/App/dashboard.dart';
 import 'package:frontend_flutter/pages/App/statistic_page.dart';
 import 'package:frontend_flutter/pages/App/transaction_page.dart';
-import 'package:frontend_flutter/pages/App/budgets.dart';
 import 'package:frontend_flutter/pages/App/transaction_history.dart';
 
 class HomePage extends StatefulWidget {
@@ -32,7 +32,7 @@ class _HomePageState extends State<HomePage> {
       DashboardPage(token: widget.token),
       StatisticsPage(token: widget.token),
       TransactionsPage(token: widget.token),
-      Budgets(token: widget.token),
+      BudgetsPage(token: widget.token),
       TransactionsHistoryPage(token: widget.token),
     ];
   }

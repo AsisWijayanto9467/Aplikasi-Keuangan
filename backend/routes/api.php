@@ -24,6 +24,34 @@ Route::prefix("v1")->group(function() {
     Route::middleware("auth:sanctum")->group(function() {
         Route::get("/balance", [BalanceController::class, "checkBalance"]);
         Route::post("/balance", [BalanceController::class, "setInitialBalance"]);
+
+        Route::prefix("categories")->group(function() {
+            Route::post('/', [CategoryController::class, 'store']);
+            Route::get('/', [CategoryController::class, 'index']);
+            Route::get('/{id}', [CategoryController::class, 'show']);
+            Route::put('/{id}', [CategoryController::class, 'update']);
+            Route::delete('/{id}', [CategoryController::class, 'destroy']);
+        });
+
+         Route::prefix('budget')->group(function () {
+            Route::post('/setup', [BudgetController::class, 'setupMonthlyBudget']);
+            Route::get('/overview', [BudgetController::class, 'getBudgetOverview']);
+            Route::get('/daily-recommendations', [BudgetController::class, 'getDailyRecommendations']);
+            Route::get('/history', [BudgetController::class, 'getBudgetHistory']);
+
+            // Transactions
+            Route::post('/transactions', [BudgetController::class, 'addTransaction']);
+            Route::get('/transactions', [BudgetController::class, 'getTransactions']);
+            Route::delete('/transactions/{id}', [BudgetController::class, 'deleteTransaction']);
+
+            // Edit Budget & Income
+            Route::put('/{id}', [BudgetController::class, 'updateBudget']);
+            Route::put('/income/update', [BudgetController::class, 'updateIncome']);
+
+            // Reset
+            Route::post('/reset/transactions', [BudgetController::class, 'resetTransactions']);
+            Route::delete('/reset/all', [BudgetController::class, 'resetAllBudget']);
+        });
     });
 
     Route::middleware(['auth:sanctum', 'balance'], )->group(function () {
@@ -35,23 +63,6 @@ Route::prefix("v1")->group(function() {
             Route::put('/{id}', [TransactionController::class, 'update']);
             Route::delete('/{id}', [TransactionController::class, 'destroy']);
             Route::get('/{id}', [TransactionController::class, 'show']);
-        });
-
-        Route::prefix("categories")->group(function() {
-            Route::post('/', [CategoryController::class, 'store']);
-            Route::get('/', [CategoryController::class, 'index']);
-            Route::get('/{id}', [CategoryController::class, 'show']);
-            Route::put('/{id}', [CategoryController::class, 'update']);
-            Route::delete('/{id}', [CategoryController::class, 'destroy']);
-        });
-
-        Route::prefix("budgets")->group(function() {
-            Route::post('/', [BudgetController::class, 'store']);
-            Route::get('/', [BudgetController::class, 'index']);
-            Route::get('/{id}', [BudgetController::class, 'show']);
-            Route::put('/{id}', [BudgetController::class, 'update']);
-            Route::delete('/{id}', [BudgetController::class, 'destroy']);
-            Route::get('/status', [BudgetController::class, 'checkStatus']);
         });
     });
 });

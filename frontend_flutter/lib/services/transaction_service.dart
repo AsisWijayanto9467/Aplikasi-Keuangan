@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class TransactionService {
-  static const String baseUrl = 'http://10.101.0.235:8000/api/v1';
+  static const String baseUrl = 'http://10.139.16.235:8000/api/v1';
 
   /// Cek apakah user sudah set saldo awal
    static Future<Map<String, dynamic>> checkBalance(String token) async {

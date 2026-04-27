@@ -1,106 +1,145 @@
-// lib/models/budget_model.dart
+// lib/pages/models/budget_model.dart
+import 'package:intl/intl.dart';
+
 class BudgetModel {
   final int? budgetId;
-  final int categoryId;
+  final int? categoryId;
   final String categoryName;
-  final bool hasBudget;
   final double? limit;
   final double? spent;
   final double? remaining;
   final double? percentage;
   final String status;
-  final int month;
-  final int year;
+  final bool hasBudget;
+  final double? dailyRecommendation;
+  final double? averageDailySpent;
 
   BudgetModel({
     this.budgetId,
-    required this.categoryId,
+    this.categoryId,
     required this.categoryName,
-    required this.hasBudget,
     this.limit,
     this.spent,
     this.remaining,
     this.percentage,
     required this.status,
-    required this.month,
-    required this.year,
+    this.hasBudget = false,
+    this.dailyRecommendation,
+    this.averageDailySpent,
   });
 
   factory BudgetModel.fromJson(Map<String, dynamic> json) {
+    final limitAmount = _parseDouble(json['limit_amount']);
+    final totalSpent = _parseDouble(json['total_spent']);
+    final remainingAmount = _parseDouble(json['remaining_amount']);
+    final usagePercentage = _parseDouble(json['usage_percentage']);
+    
     return BudgetModel(
-      budgetId: json['budget_id'],
-      categoryId: json['category_id'],
-      categoryName: json['category_name'] ?? '',
-      hasBudget: json['has_budget'] ?? false,
-      limit: json['limit'] != null ? double.parse(json['limit'].toString()) : null,
-      spent: json['spent'] != null ? double.parse(json['spent'].toString()) : null,
-      remaining: json['remaining'] != null ? double.parse(json['remaining'].toString()) : null,
-      percentage: json['percentage'] != null ? double.parse(json['percentage'].toString()) : null,
-      status: json['status'] ?? 'no_budget',
-      month: json['month'] ?? DateTime.now().month,
-      year: json['year'] ?? DateTime.now().year,
+      budgetId: json['id'] is int ? json['id'] : int.tryParse(json['id']?.toString() ?? ''),
+      categoryId: json['category_id'] is int 
+          ? json['category_id'] 
+          : int.tryParse(json['category_id']?.toString() ?? ''),
+      categoryName: json['category_name'] ?? 'Unknown',
+      limit: limitAmount,
+      spent: totalSpent,
+      remaining: remainingAmount,
+      percentage: usagePercentage,
+      status: json['status'] ?? 'safe',
+      hasBudget: json['id'] != null,
+      dailyRecommendation: _parseDouble(json['daily_recommendation']),
+      averageDailySpent: _parseDouble(json['average_daily_spent']),
     );
   }
 
-  // Get status color
+  static double? _parseDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
+  }
+
+  int get statusColor {
+    switch (status) {
+      case 'exceeded':
+        return 0xFFEF4444;
+      case 'danger':
+        return 0xFFDC2626;
+      case 'warning':
+        return 0xFFF59E0B;
+      case 'moderate':
+        return 0xFF3B82F6;
+      case 'safe':
+        return 0xFF10B981;
+      default:
+        return 0xFF6B7280;
+    }
+  }
+
   String get statusText {
     switch (status) {
       case 'exceeded':
         return 'Melebihi';
+      case 'danger':
+        return 'Kritis';
       case 'warning':
-        return 'Hampir Habis';
-      case 'half':
-        return 'Setengah';
+        return 'Hati-hati';
+      case 'moderate':
+        return 'Sedang';
       case 'safe':
         return 'Aman';
-      case 'no_budget':
-        return 'Tanpa Budget';
       default:
-        return status;
+        return 'Unknown';
     }
   }
 
-  // Get status color for UI
-  int get statusColor {
-    switch (status) {
-      case 'exceeded':
-        return 0xFFEF4444; // Red
-      case 'warning':
-        return 0xFFF59E0B; // Amber
-      case 'half':
-        return 0xFF3B82F6; // Blue
-      case 'safe':
-        return 0xFF10B981; // Green
-      case 'no_budget':
-        return 0xFF9CA3AF; // Gray
-      default:
-        return 0xFF9CA3AF;
-    }
+  String get formattedLimit {
+    if (limit == null) return 'Rp 0';
+    final formatter = NumberFormat.currency(
+      locale: 'id_ID',
+      symbol: 'Rp ',
+      decimalDigits: 0,
+    );
+    return formatter.format(limit);
   }
 }
 
 class BudgetSummary {
-  final int totalBudgets;
-  final double totalLimit;
+  final double totalIncome;
+  final double totalBudget;
   final double totalSpent;
-  final double? totalRemaining;
-  final double? totalPercentage;
+  final double unallocatedAmount;
+  final double remainingBalanced;
+  final double budgetUsagePercentage;
+  final double? dailyRecommendation;
 
   BudgetSummary({
-    required this.totalBudgets,
-    required this.totalLimit,
+    required this.totalIncome,
+    required this.totalBudget,
     required this.totalSpent,
-    this.totalRemaining,
-    this.totalPercentage,
+    required this.unallocatedAmount,
+    required this.remainingBalanced,
+    required this.budgetUsagePercentage,
+    this.dailyRecommendation,
   });
 
   factory BudgetSummary.fromJson(Map<String, dynamic> json) {
     return BudgetSummary(
-      totalBudgets: json['total_budgets'] ?? 0,
-      totalLimit: json['total_limit'] != null ? double.parse(json['total_limit'].toString()) : 0,
-      totalSpent: json['total_spent'] != null ? double.parse(json['total_spent'].toString()) : 0,
-      totalRemaining: json['total_remaining'] != null ? double.parse(json['total_remaining'].toString()) : null,
-      totalPercentage: json['total_percentage'] != null ? double.parse(json['total_percentage'].toString()) : null,
+      totalIncome: _parseDouble(json['total_income']) ?? 0,
+      totalBudget: _parseDouble(json['total_budget']) ?? 0,
+      totalSpent: _parseDouble(json['total_spent']) ?? 0,
+      unallocatedAmount: _parseDouble(json['unallocated_amount']) ?? 0,
+      remainingBalanced: _parseDouble(json['remaining_balanced']) ?? 0,
+      budgetUsagePercentage: _parseDouble(json['budget_usage_percentage']) ?? 0,
+      dailyRecommendation: _parseDouble(json['daily_recommendation']),
     );
+  }
+
+  static double? _parseDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
   }
 }

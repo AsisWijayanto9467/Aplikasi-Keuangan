@@ -60,7 +60,7 @@ class _MainLayoutState extends State<MainLayout> {
       ),
       StatisticsPage(token: widget.token),
       TransactionsPage(token: widget.token),
-      Budgets(token: widget.token),
+      BudgetsPage(token: widget.token),
       TransactionsHistoryPage(token: widget.token), // ⭐ Sekarang aman
     ];
   }
