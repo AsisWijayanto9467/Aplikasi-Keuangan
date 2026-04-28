@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class CategoryService {
-  static const String baseUrl = 'http://10.139.16.235:8000/api/v1/categories';
+  static const String baseUrl = 'http://192.168.137.1:8000/api/v1/categories';
 
   static Map<String, String> _headers({required String token}) {
     return {

@@ -686,7 +686,7 @@ class _BudgetsPageState extends State<BudgetsPage>
                                   Text(budget['category_name'] ?? ''),
                                   const SizedBox(width: 8),
                                   Text(
-                                    '(Sisa: ${_formatCurrency((budget['remaining_amount'] ?? 0).toDouble())})',
+                                    '(Sisa: ${_formatCurrency(_parseDouble(budget['remaining_amount'] ?? 0))})',
                                     style: TextStyle(
                                       fontSize: 11,
                                       color: Colors.grey.shade500,
@@ -1003,7 +1003,7 @@ class _BudgetsPageState extends State<BudgetsPage>
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Total terpakai: ${_formatCurrency((budget['total_spent'] ?? 0).toDouble())}',
+                      'Total terpakai: ${_formatCurrency(_parseDouble(budget['total_spent'] ?? 0))}',
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.grey.shade600,
@@ -1160,7 +1160,7 @@ class _BudgetsPageState extends State<BudgetsPage>
 
     if (budget.isEmpty) return const SizedBox();
 
-    final usage = _parseDouble(budget['usage_percentage']);
+    final usage = _parseDouble(budget['usage_percentage']); // ✅ sudah benar
     final remaining = _parseDouble(budget['remaining_amount']);
 
     return Container(
@@ -1182,7 +1182,7 @@ class _BudgetsPageState extends State<BudgetsPage>
                 style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
               ),
               Text(
-                _formatCurrency((budget['remaining_amount'] ?? 0).toDouble()),
+                _formatCurrency(remaining),
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
@@ -1899,7 +1899,7 @@ class _BudgetsPageState extends State<BudgetsPage>
                       ),
                       if (budget['daily_recommendation'] != null)
                         Text(
-                          'Max/hari: ${_formatCurrency((budget['daily_recommendation'] ?? 0).toDouble())}',
+                          'Max/hari: ${_formatCurrency(_parseDouble(budget['daily_recommendation'] ?? 0))}',
                           style: TextStyle(
                             fontSize: 11,
                             color: Colors.grey.shade600,
@@ -1965,7 +1965,7 @@ class _BudgetsPageState extends State<BudgetsPage>
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Pengeluaran maksimal hari ini: ${_formatCurrency((_budgetOverview!['income']?['daily_recommendation'] ?? 0).toDouble())}',
+                  'Pengeluaran maksimal hari ini: ${_formatCurrency(_parseDouble(_budgetOverview!['income']?['daily_recommendation'] ?? 0))}',
                   style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
                 ),
               ],
@@ -2086,7 +2086,7 @@ class _BudgetsPageState extends State<BudgetsPage>
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          '-${_formatCurrency((transaction['amount'] ?? 0).toDouble())}',
+                          '-${_formatCurrency(_parseDouble(transaction['amount'] ?? 0))}',
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.bold,

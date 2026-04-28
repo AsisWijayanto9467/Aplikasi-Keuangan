@@ -1,23 +1,24 @@
 // lib/pages/App/transaction_history.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:frontend_flutter/pages/App/transaction_page.dart';
 import 'package:frontend_flutter/services/transaction_service.dart';
 import 'package:intl/intl.dart';
 
 class TransactionsHistoryPage extends StatefulWidget {
   final String token;
 
-  const TransactionsHistoryPage({
-    super.key,
-    required this.token,
-  });
+  const TransactionsHistoryPage({super.key, required this.token});
 
   @override
-  State<TransactionsHistoryPage> createState() => _TransactionsHistoryPageState();
+  State<TransactionsHistoryPage> createState() =>
+      _TransactionsHistoryPageState();
 }
 
 class _TransactionsHistoryPageState extends State<TransactionsHistoryPage>
     with AutomaticKeepAliveClientMixin {
+  
+  final Set<String> _processingDeletions = {};
   @override
   bool get wantKeepAlive => true;
 
@@ -34,11 +35,10 @@ class _TransactionsHistoryPageState extends State<TransactionsHistoryPage>
   double _currentBalance = 0.0;
 
   // Filter state
-  String _selectedType = 'all'; // 'all', 'income', 'expense'
+  String _selectedType = 'all';
   String _selectedCategoryId = 'all';
   DateTime? _startDate;
   DateTime? _endDate;
-  bool _showFilterPanel = false;
 
   // Summary data
   double _totalIncome = 0.0;
@@ -146,7 +146,6 @@ class _TransactionsHistoryPageState extends State<TransactionsHistoryPage>
   }
 
   Future<void> _loadCategories() async {
-    // TODO: Implement getCategories API
     setState(() {
       _categories = [
         {'id': '1', 'name': 'Makanan', 'type': 'expense'},
@@ -178,27 +177,26 @@ class _TransactionsHistoryPageState extends State<TransactionsHistoryPage>
         final data = response['data'] ?? [];
         final transactions = data['data'] ?? [];
 
-        // Filter lokal untuk kategori dan tanggal (sementara sampai API support)
         List<dynamic> filteredTransactions = List.from(transactions);
-        
-        // Filter by category
+
         if (_selectedCategoryId != 'all') {
           filteredTransactions = filteredTransactions
               .where((t) => t['category']?['id']?.toString() == _selectedCategoryId)
               .toList();
         }
 
-        // Filter by date range
         if (_startDate != null) {
           filteredTransactions = filteredTransactions.where((t) {
             final date = DateTime.tryParse(t['date'] ?? '');
-            return date != null && date.isAfter(_startDate!.subtract(const Duration(days: 1)));
+            return date != null &&
+                date.isAfter(_startDate!.subtract(const Duration(days: 1)));
           }).toList();
         }
         if (_endDate != null) {
           filteredTransactions = filteredTransactions.where((t) {
             final date = DateTime.tryParse(t['date'] ?? '');
-            return date != null && date.isBefore(_endDate!.add(const Duration(days: 1)));
+            return date != null &&
+                date.isBefore(_endDate!.add(const Duration(days: 1)));
           }).toList();
         }
 
@@ -246,6 +244,9 @@ class _TransactionsHistoryPageState extends State<TransactionsHistoryPage>
   }
 
   Future<void> _handleDeleteTransaction(String id) async {
+    // Cegah double click
+    if (_processingDeletions.contains(id)) return;
+    
     final shouldDelete = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -262,10 +263,7 @@ class _TransactionsHistoryPageState extends State<TransactionsHistoryPage>
           style: TextStyle(color: Colors.grey, height: 1.5),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Batal'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(
@@ -280,6 +278,11 @@ class _TransactionsHistoryPageState extends State<TransactionsHistoryPage>
     );
 
     if (shouldDelete != true) return;
+
+    // Tambahkan ID ke processing set
+    setState(() {
+      _processingDeletions.add(id);
+    });
 
     try {
       final response = await TransactionService.deleteTransaction(
@@ -298,8 +301,16 @@ class _TransactionsHistoryPageState extends State<TransactionsHistoryPage>
       }
     } catch (e) {
       _showErrorSnackBar('Gagal terhubung ke server');
+    } finally {
+      // Hapus ID dari processing set
+      if (mounted) {
+        setState(() {
+          _processingDeletions.remove(id);
+        });
+      }
     }
   }
+
 
   void _showFilterBottomSheet() {
     showModalBottomSheet(
@@ -318,7 +329,6 @@ class _TransactionsHistoryPageState extends State<TransactionsHistoryPage>
           ),
           child: Column(
             children: [
-              // Header
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                 decoration: BoxDecoration(
@@ -339,11 +349,7 @@ class _TransactionsHistoryPageState extends State<TransactionsHistoryPage>
                     const SizedBox(width: 12),
                     const Text(
                       'Filter Transaksi',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF0F172A),
-                      ),
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
                     ),
                     const Spacer(),
                     TextButton(
@@ -355,6 +361,9 @@ class _TransactionsHistoryPageState extends State<TransactionsHistoryPage>
                           _endDate = null;
                         });
                         setState(() {});
+                        _loadBalance();
+                        _loadTransactions(refresh: true);
+                        Navigator.pop(ctx);
                       },
                       child: const Text('Reset'),
                     ),
@@ -365,14 +374,12 @@ class _TransactionsHistoryPageState extends State<TransactionsHistoryPage>
                   ],
                 ),
               ),
-              // Filter Content
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(20),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Type Filter
                       const Text(
                         'Tipe Transaksi',
                         style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
@@ -388,8 +395,6 @@ class _TransactionsHistoryPageState extends State<TransactionsHistoryPage>
                         ],
                       ),
                       const SizedBox(height: 24),
-
-                      // Category Filter
                       const Text(
                         'Kategori',
                         style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
@@ -409,8 +414,6 @@ class _TransactionsHistoryPageState extends State<TransactionsHistoryPage>
                         ],
                       ),
                       const SizedBox(height: 24),
-
-                      // Date Range
                       const Text(
                         'Rentang Tanggal',
                         style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
@@ -456,8 +459,6 @@ class _TransactionsHistoryPageState extends State<TransactionsHistoryPage>
                         ],
                       ),
                       const SizedBox(height: 32),
-
-                      // Apply Button
                       SizedBox(
                         width: double.infinity,
                         height: 54,
@@ -489,12 +490,208 @@ class _TransactionsHistoryPageState extends State<TransactionsHistoryPage>
     );
   }
 
+  Widget _buildTransactionItem(dynamic transaction) {
+    final transactionId = transaction['id'].toString();
+    final isProcessing = _processingDeletions.contains(transactionId);
+    
+    // Jika sedang diproses, tampilkan loading indicator
+    if (isProcessing) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const Center(
+          child: SizedBox(
+            height: 20,
+            width: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+
+    final isIncome = transaction['type'] == 'income';
+    final category = transaction['category'];
+    final categoryName = category != null ? category['name'] : 'Lainnya';
+    final amount = _parseDouble(transaction['amount']);
+    final date = DateTime.tryParse(transaction['date'] ?? '') ?? DateTime.now();
+    final color = _categoryColors[categoryName] ?? const Color(0xFF64748B);
+    final icon = _categoryIcons[categoryName] ?? Icons.receipt_long_rounded;
+    final paymentMethod = transaction['payment_method'] ?? 'cash';
+
+    return Dismissible(
+      key: Key(transactionId),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFFDC2626),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        child: const Icon(Icons.delete_outline_rounded, color: Colors.white),
+      ),
+      confirmDismiss: (direction) async {
+        return await showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: const Text('Hapus Transaksi?'),
+            content: const Text('Transaksi yang dihapus tidak dapat dikembalikan.'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFDC2626),
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Hapus'),
+              ),
+            ],
+          ),
+        );
+      },
+      onDismissed: (direction) {
+        // ✅ Gunakan Future.microtask
+        Future.microtask(() => _handleDeleteTransaction(transactionId));
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: color, size: 16),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    transaction['title'] ?? 'Tanpa Judul',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: color.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          categoryName,
+                          style: TextStyle(fontSize: 9, color: color, fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Icon(
+                        _paymentIcons[paymentMethod] ?? Icons.money_rounded,
+                        size: 10,
+                        color: Colors.grey.shade400,
+                      ),
+                      const SizedBox(width: 2),
+                      Text(
+                        _paymentLabels[paymentMethod] ?? paymentMethod,
+                        style: TextStyle(fontSize: 9, color: Colors.grey.shade500),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '${isIncome ? '+' : '-'}${_formatCurrency(amount)}',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: isIncome ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  DateFormat('dd/MM/yy').format(date),
+                  style: TextStyle(fontSize: 9, color: Colors.grey.shade500),
+                ),
+              ],
+            ),
+            // Tombol Edit
+            Container(
+              margin: const EdgeInsets.only(left: 8),
+              child: InkWell(
+                onTap: () async {
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => TransactionsPage(
+                        token: widget.token,
+                        transactionToEdit: transaction,
+                      ),
+                    ),
+                  );
+
+                  if (result == true) {
+                    await _loadBalance();
+                    await _loadTransactions(refresh: true);
+                    _showSuccessSnackBar('Transaksi berhasil diupdate');
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E3A8A).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.edit_rounded,
+                    size: 16,
+                    color: Color(0xFF1E3A8A),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildFilterChip(String label, String value, StateSetter setModalState) {
     final isSelected = _selectedType == value;
-    final color = value == 'income' 
-        ? const Color(0xFF10B981) 
-        : value == 'expense' 
-            ? const Color(0xFFEF4444) 
+    final color = value == 'income'
+        ? const Color(0xFF10B981)
+        : value == 'expense'
+            ? const Color(0xFFEF4444)
             : const Color(0xFF1E3A8A);
 
     return GestureDetector(
@@ -523,7 +720,7 @@ class _TransactionsHistoryPageState extends State<TransactionsHistoryPage>
 
   Widget _buildCategoryChip(String label, String value, StateSetter setModalState, [String? type]) {
     final isSelected = _selectedCategoryId == value;
-    final color = value == 'all' 
+    final color = value == 'all'
         ? const Color(0xFF1E3A8A)
         : _categoryColors[label] ?? const Color(0xFF64748B);
 
@@ -749,14 +946,14 @@ class _TransactionsHistoryPageState extends State<TransactionsHistoryPage>
 
   Widget _buildActiveFilters() {
     final List<Widget> chips = [];
-    
+
     if (_selectedType != 'all') {
       chips.add(_buildActiveFilterChip(
         _selectedType == 'income' ? 'Pemasukan' : 'Pengeluaran',
         () => setState(() => _selectedType = 'all'),
       ));
     }
-    
+
     if (_selectedCategoryId != 'all') {
       final category = _categories.firstWhere(
         (c) => c['id'].toString() == _selectedCategoryId,
@@ -767,14 +964,14 @@ class _TransactionsHistoryPageState extends State<TransactionsHistoryPage>
         () => setState(() => _selectedCategoryId = 'all'),
       ));
     }
-    
+
     if (_startDate != null) {
       chips.add(_buildActiveFilterChip(
         'Dari: ${DateFormat('dd/MM/yy').format(_startDate!)}',
         () => setState(() => _startDate = null),
       ));
     }
-    
+
     if (_endDate != null) {
       chips.add(_buildActiveFilterChip(
         'Sampai: ${DateFormat('dd/MM/yy').format(_endDate!)}',
@@ -786,11 +983,7 @@ class _TransactionsHistoryPageState extends State<TransactionsHistoryPage>
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: chips,
-      ),
+      child: Wrap(spacing: 8, runSpacing: 8, children: chips),
     );
   }
 
@@ -815,147 +1008,6 @@ class _TransactionsHistoryPageState extends State<TransactionsHistoryPage>
             child: const Icon(Icons.close_rounded, size: 14, color: Color(0xFF1E3A8A)),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildTransactionItem(dynamic transaction) {
-    final isIncome = transaction['type'] == 'income';
-    final category = transaction['category'];
-    final categoryName = category != null ? category['name'] : 'Lainnya';
-    final amount = _parseDouble(transaction['amount']);
-    final date = DateTime.tryParse(transaction['date'] ?? '') ?? DateTime.now();
-    final color = _categoryColors[categoryName] ?? const Color(0xFF64748B);
-    final icon = _categoryIcons[categoryName] ?? Icons.receipt_long_rounded;
-    final paymentMethod = transaction['payment_method'] ?? 'cash';
-
-    return Dismissible(
-      key: Key(transaction['id'].toString()),
-      direction: DismissDirection.endToStart,
-      background: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        decoration: BoxDecoration(
-          color: const Color(0xFFDC2626),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
-        child: const Icon(Icons.delete_outline_rounded, color: Colors.white),
-      ),
-      confirmDismiss: (direction) async {
-        return await showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            title: const Text('Hapus Transaksi?'),
-            content: const Text('Transaksi yang dihapus tidak dapat dikembalikan.'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Batal'),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFDC2626),
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text('Hapus'),
-              ),
-            ],
-          ),
-        );
-      },
-      onDismissed: (direction) {
-        _handleDeleteTransaction(transaction['id'].toString());
-      },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.03),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, color: color, size: 16),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    transaction['title'] ?? 'Tanpa Judul',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF0F172A),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: color.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          categoryName,
-                          style: TextStyle(fontSize: 9, color: color, fontWeight: FontWeight.w500),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Icon(
-                        _paymentIcons[paymentMethod] ?? Icons.money_rounded,
-                        size: 10,
-                        color: Colors.grey.shade400,
-                      ),
-                      const SizedBox(width: 2),
-                      Text(
-                        _paymentLabels[paymentMethod] ?? paymentMethod,
-                        style: TextStyle(fontSize: 9, color: Colors.grey.shade500),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  '${isIncome ? '+' : '-'}${_formatCurrency(amount)}',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: isIncome ? const Color(0xFF10B981) : const Color(0xFFEF4444),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  DateFormat('dd/MM/yy').format(date),
-                  style: TextStyle(fontSize: 9, color: Colors.grey.shade500),
-                ),
-              ],
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -1013,11 +1065,7 @@ class _TransactionsHistoryPageState extends State<TransactionsHistoryPage>
           const SizedBox(height: 16),
           Text(
             'Belum ada transaksi',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey.shade600,
-            ),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.grey.shade600),
           ),
           const SizedBox(height: 8),
           Text(
@@ -1042,7 +1090,6 @@ class _TransactionsHistoryPageState extends State<TransactionsHistoryPage>
       body: SafeArea(
         child: Column(
           children: [
-            // Header
             Container(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
               decoration: BoxDecoration(
@@ -1061,23 +1108,14 @@ class _TransactionsHistoryPageState extends State<TransactionsHistoryPage>
                           ),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Icon(
-                          Icons.history_rounded,
-                          color: Colors.white,
-                          size: 20,
-                        ),
+                        child: const Icon(Icons.history_rounded, color: Colors.white, size: 20),
                       ),
                       const SizedBox(width: 12),
                       const Text(
                         'Riwayat Transaksi',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF0F172A),
-                        ),
+                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
                       ),
                       const Spacer(),
-                      // Filter Button
                       GestureDetector(
                         onTap: _showFilterBottomSheet,
                         child: Container(
@@ -1117,7 +1155,6 @@ class _TransactionsHistoryPageState extends State<TransactionsHistoryPage>
                       ),
                     ],
                   ),
-                  // Saldo
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     child: Row(
@@ -1132,25 +1169,15 @@ class _TransactionsHistoryPageState extends State<TransactionsHistoryPage>
                           'Saldo: ',
                           style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                         ),
-                        Text(
-                          _formatCurrency(_currentBalance),
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF1E3A8A),
-                          ),
-                        ),
+                        Text(_formatCurrency(_currentBalance)),
                       ],
                     ),
                   ),
                 ],
               ),
             ),
-            // Summary Cards
             if (!_isLoading && _transactions.isNotEmpty) _buildSummaryCards(),
-            // Active Filters
             _buildActiveFilters(),
-            // Transaction List
             Expanded(
               child: _isLoading && _transactions.isEmpty
                   ? _buildLoadingScreen()

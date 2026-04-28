@@ -2,15 +2,15 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class TransactionService {
-  static const String baseUrl = 'http://10.139.16.235:8000/api/v1';
+  static const String baseUrl = 'http://192.168.137.1:8000/api/v1';
 
   /// Cek apakah user sudah set saldo awal
-   static Future<Map<String, dynamic>> checkBalance(String token) async {
+  static Future<Map<String, dynamic>> checkBalance(String token) async {
     try {
       print('=== CHECK BALANCE REQUEST ===');
       print('URL: $baseUrl/balance');
       print('Token: $token');
-      
+
       final response = await http.get(
         Uri.parse('$baseUrl/balance'),
         headers: {
@@ -36,7 +36,7 @@ class TransactionService {
 
   // lib/services/transaction_service.dart
   static Future<Map<String, dynamic>> setInitialBalance(
-    String token, 
+    String token,
     double amount,
   ) async {
     try {
@@ -44,31 +44,67 @@ class TransactionService {
       print('URL: $baseUrl/balance');
       print('Token: ${token.substring(0, 20)}...'); // Jangan print full token
       print('Amount: $amount');
-      
-      final response = await http.post(
-        Uri.parse('$baseUrl/balance'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({'amount': amount}),
-      ).timeout(const Duration(seconds: 10)); // Tambahkan timeout
+
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/balance'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({'amount': amount}),
+          )
+          .timeout(const Duration(seconds: 10)); // Tambahkan timeout
 
       print('Response Status: ${response.statusCode}');
       print('Response Body: ${response.body}');
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body);
-        
+
         // ⭐ VERIFIKASI response
         print('Is Initialized from response: ${data['initialized']}');
-        
+
         return data;
       } else {
         throw Exception('Failed to set balance: ${response.statusCode}');
       }
     } catch (e) {
       print('Set Initial Balance Error: $e');
+      rethrow;
+    }
+  }
+
+  // lib/services/transaction_service.dart
+
+  /// Get list kategori
+  static Future<List<Map<String, dynamic>>> getCategories(String token) async {
+    try {
+      print('=== LOADING CATEGORIES ===');
+      print('URL: $baseUrl/categories');
+
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/categories'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+              'Accept': 'application/json',
+            },
+          )
+          .timeout(const Duration(seconds: 10));
+
+      print('Categories Response Status: ${response.statusCode}');
+      print('Categories Response Body: ${response.body}');
+
+     if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return List<Map<String, dynamic>>.from(data['data']);  // ⬅️ Ini benar
+      } else {
+        throw Exception('Gagal load categories: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error loading categories: $e');
       rethrow;
     }
   }
@@ -85,14 +121,15 @@ class TransactionService {
     int page = 1,
   }) async {
     final Map<String, String> queryParams = {'page': page.toString()};
-    
+
     if (type != null) queryParams['type'] = type;
     if (categoryId != null) queryParams['category_id'] = categoryId;
     if (startDate != null) queryParams['start_date'] = startDate;
     if (endDate != null) queryParams['end_date'] = endDate;
 
-    final uri = Uri.parse('$baseUrl/transactions')
-        .replace(queryParameters: queryParams);
+    final uri = Uri.parse(
+      '$baseUrl/transactions',
+    ).replace(queryParameters: queryParams);
 
     final response = await http.get(
       uri,
@@ -129,23 +166,26 @@ class TransactionService {
   }) async {
     try {
       final Map<String, String> queryParams = {'period': period};
-      
+
       if (year != null) queryParams['year'] = year.toString();
       if (month != null) queryParams['month'] = month.toString();
 
-      final uri = Uri.parse('$baseUrl/statistics')
-          .replace(queryParameters: queryParams);
+      final uri = Uri.parse(
+        '$baseUrl/statistics',
+      ).replace(queryParameters: queryParams);
 
       print('=== GET STATISTICS ===');
       print('URL: $uri');
 
-      final response = await http.get(
-        uri,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      ).timeout(const Duration(seconds: 15));
+      final response = await http
+          .get(
+            uri,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          )
+          .timeout(const Duration(seconds: 15));
 
       print('Response Status: ${response.statusCode}');
 
@@ -161,23 +201,25 @@ class TransactionService {
   }
 
   /// Create transaksi baru
+  // lib/services/transaction_service.dart
   static Future<Map<String, dynamic>> createTransaction({
     required String token,
     required String categoryId,
     required String title,
     String? description,
     required double amount,
-    required String paymentMethod, // 'cash', 'qris', 'transfer'
-    required String type,          // 'income', 'expense'
-    required String date,          // format: 'YYYY-MM-DD'
+    required String paymentMethod,
+    required String type,
+    required String date,
   }) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/transactions'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-      body: jsonEncode({
+    try {
+      // 🔍 LOGGING LENGKAP
+      print('=== CREATE TRANSACTION REQUEST ===');
+      print('URL: $baseUrl/transactions');
+      print('Token: ${token.substring(0, 20)}...');
+      print('Headers: Bearer $token');
+
+      final body = {
         'category_id': categoryId,
         'title': title,
         'description': description,
@@ -185,10 +227,46 @@ class TransactionService {
         'payment_method': paymentMethod,
         'type': type,
         'date': date,
-      }),
-    );
+      };
 
-    return jsonDecode(response.body);
+      print('Request Body: ${jsonEncode(body)}');
+
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/transactions'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+              'Accept': 'application/json', // ⬅️ TAMBAHKAN INI
+            },
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 10)); // ⬅️ Tambahkan timeout
+
+      print('Response Status: ${response.statusCode}');
+      print('Response Body: ${response.body}');
+
+      // ⭐ CEK STATUS CODE
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return jsonDecode(response.body);
+      } else if (response.statusCode == 403) {
+        throw Exception(
+          'Saldo belum diinisialisasi. Silakan atur saldo terlebih dahulu.',
+        );
+      } else if (response.statusCode == 400) {
+        final errorData = jsonDecode(response.body);
+        throw Exception(errorData['message'] ?? 'Validasi gagal');
+      } else if (response.statusCode == 401) {
+        throw Exception('Token tidak valid atau expired');
+      } else {
+        throw Exception(
+          'Gagal membuat transaksi (Status: ${response.statusCode})',
+        );
+      }
+    } catch (e) {
+      print('Create Transaction Error: $e');
+      rethrow;
+    }
   }
 
   /// Update transaksi
@@ -200,8 +278,8 @@ class TransactionService {
     String? description,
     required double amount,
     required String paymentMethod, // 'cash', 'qris', 'transfer'
-    required String type,          // 'income', 'expense'
-    required String date,          // format: 'YYYY-MM-DD'
+    required String type, // 'income', 'expense'
+    required String date, // format: 'YYYY-MM-DD'
   }) async {
     final response = await http.put(
       Uri.parse('$baseUrl/transactions/$id'),

@@ -73,6 +73,25 @@ class _StatisticsPageState extends State<StatisticsPage>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Refresh data ketika halaman menjadi aktif kembali
+    _refreshStatisticsIfNeeded();
+  }
+
+  bool _isFirstLoad = true;
+
+  Future<void> _refreshStatisticsIfNeeded() async {
+    final route = ModalRoute.of(context);
+    if (route != null && route.isCurrent && !_isFirstLoad) {
+      // Halaman menjadi aktif dan bukan load pertama, refresh data
+      await _loadStatistics();
+    }
+    _isFirstLoad = false;
+  }
+
+
+  @override
   void dispose() {
     _tabController.dispose();
     super.dispose();
