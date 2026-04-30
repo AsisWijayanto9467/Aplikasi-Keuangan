@@ -225,368 +225,394 @@ class _BudgetsPageState extends State<BudgetsPage>
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(24),
               ),
-              child: Padding(
-                padding: const EdgeInsets.all(20),
+              // ⭐ TAMBAHKAN: Batasi tinggi dialog dan buat scrollable
+              insetPadding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 24,
+              ),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.85,
+                ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF1E3A8A), Color(0xFF2563EB)],
+                    // Header tetap di atas
+                    Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF1E3A8A), Color(0xFF2563EB)],
+                              ),
+                              borderRadius: BorderRadius.circular(10),
                             ),
-                            borderRadius: BorderRadius.circular(10),
+                            child: const Icon(
+                              Icons.account_balance_wallet_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
                           ),
-                          child: const Icon(
-                            Icons.account_balance_wallet_rounded,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Setup Budget Bulanan',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF0F172A),
-                                ),
-                              ),
-                              Text(
-                                '${_months[_selectedMonth - 1]} $_selectedYear',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey.shade600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: () => Navigator.pop(ctx),
-                          icon: const Icon(Icons.close_rounded),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Input Income
-                    Text(
-                      'Total Pemasukan Bulanan',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey.shade700,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: incomeController,
-                      keyboardType: TextInputType.number,
-                      onChanged: (_) => setDialogState(() {}),
-                      decoration: InputDecoration(
-                        hintText: 'Contoh: 5000000',
-                        prefixText: 'Rp ',
-                        prefixStyle: const TextStyle(
-                          color: Color(0xFF1E3A8A),
-                          fontWeight: FontWeight.w600,
-                        ),
-                        filled: true,
-                        fillColor: Colors.grey.shade50,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: Color(0xFF1E3A8A),
-                            width: 1.5,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Kategori Budget
-                    Text(
-                      'Alokasi Budget per Kategori',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey.shade700,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // List kategori
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxHeight: 250),
-                      child: ListView.builder(
-                        shrinkWrap: true,
-                        itemCount: _categories.length,
-                        itemBuilder: (context, index) {
-                          final category = _categories[index];
-                          final catId = category['id'];
-                          budgetControllers.putIfAbsent(
-                            catId,
-                            () => TextEditingController(),
-                          );
-
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 10),
-                            child: Row(
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Container(
-                                  padding: const EdgeInsets.all(6),
-                                  decoration: BoxDecoration(
-                                    color: _getCategoryColor(
-                                      index,
-                                    ).withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Icon(
-                                    _getCategoryIcon(category['name'] ?? ''),
-                                    color: _getCategoryColor(index),
-                                    size: 16,
+                                const Text(
+                                  'Setup Budget Bulanan',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF0F172A),
                                   ),
                                 ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    category['name'] ?? 'Kategori',
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                                SizedBox(
-                                  width: 140,
-                                  child: TextField(
-                                    controller: budgetControllers[catId],
-                                    keyboardType: TextInputType.number,
-                                    onChanged: (value) {
-                                      double newTotal = 0;
-                                      budgetControllers.forEach((key, ctrl) {
-                                        newTotal +=
-                                            double.tryParse(ctrl.text) ?? 0;
-                                      });
-                                      setDialogState(() {
-                                        totalBudget = newTotal;
-                                      });
-                                    },
-                                    decoration: InputDecoration(
-                                      hintText: '0',
-                                      prefixText: 'Rp ',
-                                      prefixStyle: TextStyle(
-                                        color: Colors.grey.shade600,
-                                        fontSize: 11,
-                                      ),
-                                      isDense: true,
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                            horizontal: 10,
-                                            vertical: 8,
-                                          ),
-                                      filled: true,
-                                      fillColor: Colors.grey.shade50,
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                        borderSide: BorderSide.none,
-                                      ),
-                                    ),
+                                Text(
+                                  '${_months[_selectedMonth - 1]} $_selectedYear',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey.shade600,
                                   ),
                                 ),
                               ],
                             ),
-                          );
-                        },
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            icon: const Icon(Icons.close_rounded),
+                          ),
+                        ],
                       ),
                     ),
 
-                    // Total Budget vs Income
-                    if (incomeController.text.isNotEmpty)
-                      Container(
-                        margin: const EdgeInsets.only(top: 8),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color:
-                              totalBudget >
-                                      (double.tryParse(incomeController.text) ??
-                                          0)
-                                  ? const Color(0xFFFEE2E2)
-                                  : const Color(0xFFD1FAE5),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Row(
+                    // ⭐ BAGIAN SCROLLABLE
+                    Flexible(
+                      child: SingleChildScrollView(
+                        physics: const BouncingScrollPhysics(),
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(
-                              totalBudget >
-                                      (double.tryParse(incomeController.text) ??
-                                          0)
-                                  ? Icons.warning_rounded
-                                  : Icons.check_circle_rounded,
-                              color:
-                                  totalBudget >
-                                          (double.tryParse(
-                                                incomeController.text,
-                                              ) ??
-                                              0)
-                                      ? const Color(0xFFDC2626)
-                                      : const Color(0xFF10B981),
-                              size: 16,
+                            // Input Income
+                            Text(
+                              'Total Pemasukan Bulanan',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.grey.shade700,
+                              ),
                             ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                totalBudget >
-                                        (double.tryParse(
-                                              incomeController.text,
-                                            ) ??
-                                            0)
-                                    ? 'Total budget melebihi pemasukan!'
-                                    : 'Total budget: ${_formatCurrency(totalBudget)}',
-                                style: TextStyle(
-                                  fontSize: 12,
+                            const SizedBox(height: 8),
+                            TextField(
+                              controller: incomeController,
+                              keyboardType: TextInputType.number,
+                              onChanged: (_) => setDialogState(() {}),
+                              decoration: InputDecoration(
+                                hintText: 'Contoh: 5000000',
+                                prefixText: 'Rp ',
+                                prefixStyle: const TextStyle(
+                                  color: Color(0xFF1E3A8A),
                                   fontWeight: FontWeight.w600,
+                                ),
+                                filled: true,
+                                fillColor: Colors.grey.shade50,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide.none,
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: const BorderSide(
+                                    color: Color(0xFF1E3A8A),
+                                    width: 1.5,
+                                  ),
+                                ),
+                                // ⭐ TAMBAHKAN: Content padding yang lebih compact
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 12,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+
+                            // Kategori Budget
+                            Text(
+                              'Alokasi Budget per Kategori',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.grey.shade700,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+
+                            // ⭐ List kategori TANPA ConstrainedBox tambahan
+                            ListView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: _categories.length,
+                              itemBuilder: (context, index) {
+                                final category = _categories[index];
+                                final catId = category['id'];
+                                budgetControllers.putIfAbsent(
+                                  catId,
+                                  () => TextEditingController(),
+                                );
+
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 10),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(6),
+                                        decoration: BoxDecoration(
+                                          color: _getCategoryColor(
+                                            index,
+                                          ).withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Icon(
+                                          _getCategoryIcon(category['name'] ?? ''),
+                                          color: _getCategoryColor(index),
+                                          size: 16,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          category['name'] ?? 'Kategori',
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                      SizedBox(
+                                        width: 140,
+                                        child: TextField(
+                                          controller: budgetControllers[catId],
+                                          keyboardType: TextInputType.number,
+                                          onChanged: (value) {
+                                            double newTotal = 0;
+                                            budgetControllers.forEach((key, ctrl) {
+                                              newTotal +=
+                                                  double.tryParse(ctrl.text) ?? 0;
+                                            });
+                                            setDialogState(() {
+                                              totalBudget = newTotal;
+                                            });
+                                          },
+                                          decoration: InputDecoration(
+                                            hintText: '0',
+                                            prefixText: 'Rp ',
+                                            prefixStyle: TextStyle(
+                                              color: Colors.grey.shade600,
+                                              fontSize: 11,
+                                            ),
+                                            isDense: true,
+                                            contentPadding:
+                                                const EdgeInsets.symmetric(
+                                                  horizontal: 10,
+                                                  vertical: 8,
+                                            ),
+                                            filled: true,
+                                            fillColor: Colors.grey.shade50,
+                                            border: OutlineInputBorder(
+                                              borderRadius: BorderRadius.circular(8),
+                                              borderSide: BorderSide.none,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+
+                            // Total Budget vs Income
+                            if (incomeController.text.isNotEmpty)
+                              Container(
+                                margin: const EdgeInsets.only(top: 8),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
                                   color:
                                       totalBudget >
-                                              (double.tryParse(
-                                                    incomeController.text,
-                                                  ) ??
+                                              (double.tryParse(incomeController.text) ??
                                                   0)
-                                          ? const Color(0xFFDC2626)
-                                          : const Color(0xFF10B981),
+                                          ? const Color(0xFFFEE2E2)
+                                          : const Color(0xFFD1FAE5),
+                                  borderRadius: BorderRadius.circular(10),
                                 ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      totalBudget >
+                                              (double.tryParse(incomeController.text) ??
+                                                  0)
+                                          ? Icons.warning_rounded
+                                          : Icons.check_circle_rounded,
+                                      color:
+                                          totalBudget >
+                                                  (double.tryParse(
+                                                        incomeController.text,
+                                                      ) ??
+                                                      0)
+                                              ? const Color(0xFFDC2626)
+                                              : const Color(0xFF10B981),
+                                      size: 16,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        totalBudget >
+                                                (double.tryParse(
+                                                      incomeController.text,
+                                                    ) ??
+                                                    0)
+                                            ? 'Total budget melebihi pemasukan!'
+                                            : 'Total budget: ${_formatCurrency(totalBudget)}',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color:
+                                              totalBudget >
+                                                      (double.tryParse(
+                                                            incomeController.text,
+                                                          ) ??
+                                                          0)
+                                                  ? const Color(0xFFDC2626)
+                                                  : const Color(0xFF10B981),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                            const SizedBox(height: 16),
+                            // ⭐ BUTTON SIMPAN
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed:
+                                    isSaving
+                                        ? null
+                                        : () async {
+                                          final income = double.tryParse(
+                                            incomeController.text,
+                                          );
+                                          if (income == null || income <= 0) {
+                                            _showSnackBar(
+                                              'Masukkan total pemasukan yang valid',
+                                              isError: true,
+                                            );
+                                            return;
+                                          }
+
+                                          final budgets = <Map<String, dynamic>>[];
+                                          budgetControllers.forEach((catId, ctrl) {
+                                            final amount = double.tryParse(ctrl.text);
+                                            if (amount != null && amount > 0) {
+                                              budgets.add({
+                                                'category_id': catId,
+                                                'limit_amount': amount,
+                                              });
+                                            }
+                                          });
+
+                                          if (budgets.isEmpty) {
+                                            _showSnackBar(
+                                              'Minimal 1 kategori harus diisi',
+                                              isError: true,
+                                            );
+                                            return;
+                                          }
+
+                                          final totalAllocation = budgets.fold<double>(
+                                            0,
+                                            (sum, b) => sum + b['limit_amount'],
+                                          );
+                                          if (totalAllocation > income) {
+                                            _showSnackBar(
+                                              'Total budget melebihi pemasukan',
+                                              isError: true,
+                                            );
+                                            return;
+                                          }
+
+                                          setDialogState(() => isSaving = true);
+
+                                          try {
+                                            final response =
+                                                await BudgetService.setupMonthlyBudget(
+                                                  token: widget.token,
+                                                  totalIncome: income,
+                                                  month: _selectedMonth,
+                                                  year: _selectedYear,
+                                                  budgets: budgets,
+                                                );
+
+                                            if (response['success'] == true) {
+                                              Navigator.pop(ctx);
+                                              _showSnackBar(
+                                                response['message'] ??
+                                                    'Budget berhasil disimpan',
+                                              );
+                                              await _loadInitialData();
+                                            } else {
+                                              _showSnackBar(
+                                                response['message'] ??
+                                                    'Gagal setup budget',
+                                                isError: true,
+                                              );
+                                            }
+                                          } catch (e) {
+                                            _showSnackBar(
+                                              'Error: ${e.toString()}',
+                                              isError: true,
+                                            );
+                                          } finally {
+                                            if (mounted) {
+                                              setDialogState(() => isSaving = false);
+                                            }
+                                          }
+                                        },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF1E3A8A),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                ),
+                                child:
+                                    isSaving
+                                        ? const SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            valueColor: AlwaysStoppedAnimation<Color>(
+                                              Colors.white,
+                                            ),
+                                          ),
+                                        )
+                                        : const Text(
+                                          'Simpan Budget',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 14,
+                                          ),
+                                        ),
                               ),
                             ),
                           ],
                         ),
-                      ),
-
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed:
-                            isSaving
-                                ? null
-                                : () async {
-                                  final income = double.tryParse(
-                                    incomeController.text,
-                                  );
-                                  if (income == null || income <= 0) {
-                                    _showSnackBar(
-                                      'Masukkan total pemasukan yang valid',
-                                      isError: true,
-                                    );
-                                    return;
-                                  }
-
-                                  final budgets = <Map<String, dynamic>>[];
-                                  budgetControllers.forEach((catId, ctrl) {
-                                    final amount = double.tryParse(ctrl.text);
-                                    if (amount != null && amount > 0) {
-                                      budgets.add({
-                                        'category_id': catId,
-                                        'limit_amount': amount,
-                                      });
-                                    }
-                                  });
-
-                                  if (budgets.isEmpty) {
-                                    _showSnackBar(
-                                      'Minimal 1 kategori harus diisi',
-                                      isError: true,
-                                    );
-                                    return;
-                                  }
-
-                                  final totalAllocation = budgets.fold<double>(
-                                    0,
-                                    (sum, b) => sum + b['limit_amount'],
-                                  );
-                                  if (totalAllocation > income) {
-                                    _showSnackBar(
-                                      'Total budget melebihi pemasukan',
-                                      isError: true,
-                                    );
-                                    return;
-                                  }
-
-                                  setDialogState(() => isSaving = true);
-
-                                  try {
-                                    final response =
-                                        await BudgetService.setupMonthlyBudget(
-                                          token: widget.token,
-                                          totalIncome: income,
-                                          month: _selectedMonth,
-                                          year: _selectedYear,
-                                          budgets: budgets,
-                                        );
-
-                                    if (response['success'] == true) {
-                                      Navigator.pop(ctx);
-                                      _showSnackBar(
-                                        response['message'] ??
-                                            'Budget berhasil disimpan',
-                                      );
-                                      await _loadInitialData();
-                                    } else {
-                                      _showSnackBar(
-                                        response['message'] ??
-                                            'Gagal setup budget',
-                                        isError: true,
-                                      );
-                                    }
-                                  } catch (e) {
-                                    _showSnackBar(
-                                      'Error: ${e.toString()}',
-                                      isError: true,
-                                    );
-                                  } finally {
-                                    if (mounted) {
-                                      setDialogState(() => isSaving = false);
-                                    }
-                                  }
-                                },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF1E3A8A),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                        child:
-                            isSaving
-                                ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      Colors.white,
-                                    ),
-                                  ),
-                                )
-                                : const Text(
-                                  'Simpan Budget',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 14,
-                                  ),
-                                ),
                       ),
                     ),
                   ],

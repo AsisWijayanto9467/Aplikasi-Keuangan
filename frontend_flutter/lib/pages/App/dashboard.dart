@@ -1,162 +1,56 @@
-// lib/pages/App/dashboard.dart
 import 'package:flutter/material.dart';
-import 'package:frontend_flutter/main.dart';
+import 'package:frontend_flutter/pages/App/financial_target_list.dart';
 import 'package:frontend_flutter/pages/auth/login_page.dart';
-import 'package:frontend_flutter/pages/App/initial_balance_page.dart';
+import 'package:frontend_flutter/pages/App/statistic_page.dart';
+import 'package:frontend_flutter/pages/App/transaction_page.dart';
+import 'package:frontend_flutter/pages/App/budgets.dart';
+import 'package:frontend_flutter/pages/App/transaction_history.dart';
+import 'package:frontend_flutter/pages/widgets/bottom_nav_bar.dart';
 import 'package:frontend_flutter/services/auth_service.dart';
 import 'package:frontend_flutter/services/transaction_service.dart';
+import 'package:frontend_flutter/services/financial_target_service.dart';
 
 class DashboardPage extends StatefulWidget {
   final String token;
-  final bool skipCheckBalance;
+  final int initialTabIndex;
 
   const DashboardPage({
     super.key,
     required this.token,
-    this.skipCheckBalance = false,
+    this.initialTabIndex = 0,
   });
 
   @override
   State<DashboardPage> createState() => _DashboardPageState();
 }
 
-class _DashboardPageState extends State<DashboardPage>
-    with AutomaticKeepAliveClientMixin {
-  @override
-  bool get wantKeepAlive => true;
+class _DashboardPageState extends State<DashboardPage> {
+  late int _selectedIndex;
+  late List<Widget> _pages;
 
-  final PageController _pageController = PageController();
+  // ⭐ KEY UNTUK DASHBOARD CONTENT
+  final GlobalKey<_DashboardContentState> _dashboardKey = GlobalKey();
 
   bool _isLoading = false;
-  bool _isCheckingBalance = true;
   String _userName = 'Pengguna';
-  bool _isBalanceInitialized = true;
-
-  // Data saldo
-  double _balance = 0.0;
-  double _income = 5750000.00;
-  double _expense = 3250000.00;
-
-  bool _hasNavigated = false;
-  int _currentCardIndex = 0;
-
-  final List<String> _months = [
-    'Januari',
-    'Februari',
-    'Maret',
-    'April',
-    'Mei',
-    'Juni',
-    'Juli',
-    'Agustus',
-    'September',
-    'Oktober',
-    'November',
-    'Desember',
-  ];
-
-  String get _currentMonthYear {
-    final now = DateTime.now();
-    return '${_months[now.month - 1]} ${now.year}';
-  }
 
   @override
   void initState() {
     super.initState();
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        setState(() {});
-      }
-    });
-
+    _selectedIndex = widget.initialTabIndex;
+    _initializePages();
     _loadUserData();
-
-    if (!widget.skipCheckBalance) {
-      _checkInitialBalance();
-    } else {
-      setState(() {
-        _isCheckingBalance = false;
-        _isBalanceInitialized = true;
-      });
-      _loadBalanceDirectly();
-    }
   }
 
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
-  }
-
-  double _parseBalance(dynamic balanceData) {
-    if (balanceData == null) return 0.0;
-    if (balanceData is int) return balanceData.toDouble();
-    if (balanceData is double) return balanceData;
-    if (balanceData is String) return double.tryParse(balanceData) ?? 0.0;
-    try {
-      return double.parse(balanceData.toString());
-    } catch (e) {
-      return 0.0;
-    }
-  }
-
-  Future<void> _loadBalanceDirectly() async {
-    try {
-      final response = await TransactionService.checkBalance(widget.token);
-      if (mounted) {
-        setState(() {
-          _balance = _parseBalance(response['balance']);
-        });
-      }
-    } catch (e) {
-      print('❌ Error loading balance: $e');
-    }
-  }
-
-  Future<void> _checkInitialBalance() async {
-    if (_hasNavigated) return;
-    setState(() => _isCheckingBalance = true);
-
-    const maxRetries = 2;
-    for (int i = 0; i < maxRetries; i++) {
-      try {
-        final response = await TransactionService.checkBalance(widget.token);
-        if (!mounted) return;
-
-        final isInitialized = response['initialized'] ?? false;
-        if (isInitialized == true) {
-          setState(() {
-            _isBalanceInitialized = true;
-            _balance = _parseBalance(response['balance']);
-            _isCheckingBalance = false;
-          });
-          return;
-        }
-
-        if (i < maxRetries - 1) {
-          await Future.delayed(const Duration(milliseconds: 800));
-        }
-      } catch (e) {
-        if (i < maxRetries - 1) {
-          await Future.delayed(const Duration(milliseconds: 800));
-        }
-      }
-    }
-
-    if (mounted && !_hasNavigated) {
-      setState(() {
-        _isCheckingBalance = false;
-        _isBalanceInitialized = false;
-      });
-      _hasNavigated = true;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => InitialBalancePage(token: widget.token),
-        ),
-      );
-    }
+  void _initializePages() {
+    _pages = [
+      // ⭐ GUNAKAN KEY PADA DASHBOARD CONTENT
+      DashboardContent(key: _dashboardKey, token: widget.token),
+      StatisticsPage(token: widget.token),
+      TransactionsPage(token: widget.token),
+      BudgetsPage(token: widget.token),
+      TransactionsHistoryPage(token: widget.token),
+    ];
   }
 
   Future<void> _loadUserData() async {
@@ -173,6 +67,24 @@ class _DashboardPageState extends State<DashboardPage>
     } catch (e) {
       print('❌ Load User Data Error: $e');
     }
+  }
+
+  // ⭐ METHOD UNTUK HANDLE TAB CHANGE
+  void _onTabChanged(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+
+    // ⭐ Jika kembali ke tab dashboard (index 0), refresh data
+    if (index == 0) {
+      _refreshDashboard();
+    }
+  }
+
+  // ⭐ METHOD UNTUK REFRESH DASHBOARD
+  void _refreshDashboard() {
+    print('🔄 Refreshing dashboard data...');
+    _dashboardKey.currentState?.refreshAllData();
   }
 
   Future<void> _handleLogout() async {
@@ -275,160 +187,26 @@ class _DashboardPageState extends State<DashboardPage>
     );
   }
 
-  String _formatCurrency(double amount) {
-    return 'Rp ${amount.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}';
-  }
-
   @override
   Widget build(BuildContext context) {
-    super.build(context);
-
-    if (_isCheckingBalance) {
-      return _buildLoadingScreen('Memeriksa data...');
-    }
-
-    if (!_isBalanceInitialized) {
-      return _buildLoadingScreen('Menyiapkan akun Anda...');
-    }
-
-    // ⭐ GUNAKAN CustomScrollView LANGSUNG (bukan NestedScrollView)
-    return CustomScrollView(
-      slivers: [
-        // Header Section
-        SliverToBoxAdapter(child: _buildTopBlueSection()),
-
-        // Quick Features
-        SliverToBoxAdapter(child: _buildQuickFeatures()),
-
-        // Recent Transactions Header
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-            child: Row(
-              children: [
-                const Text(
-                  'Transaksi Terbaru',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF0F172A),
-                  ),
-                ),
-                const Spacer(),
-                TextButton(
-                  onPressed: () {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                        builder:
-                            (context) =>
-                                HomePage(token: widget.token, initialIndex: 4),
-                      ),
-                    );
-                  },
-                  style: TextButton.styleFrom(
-                    foregroundColor: const Color(0xFF1E3A8A),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                  ),
-                  child: const Text(
-                    'Lihat Semua',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 11),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-
-        // Transaction List
-        SliverPadding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          sliver: SliverList(
-            delegate: SliverChildListDelegate([
-              _buildTransactionItem(
-                icon: Icons.shopping_bag_outlined,
-                title: 'Belanja Bulanan',
-                category: 'Belanja',
-                date: 'Hari ini',
-                amount: -350000,
-                iconColor: const Color(0xFFEF4444),
-              ),
-              _buildTransactionItem(
-                icon: Icons.arrow_downward_rounded,
-                title: 'Transfer Masuk',
-                category: 'Transfer',
-                date: 'Kemarin',
-                amount: 1500000,
-                iconColor: const Color(0xFF10B981),
-              ),
-              _buildTransactionItem(
-                icon: Icons.receipt_long_rounded,
-                title: 'Tagihan Listrik',
-                category: 'Tagihan',
-                date: '18/4/2026',
-                amount: -450000,
-                iconColor: const Color(0xFFF59E0B),
-              ),
-              _buildTransactionItem(
-                icon: Icons.restaurant_rounded,
-                title: 'Makan Siang',
-                category: 'Makanan',
-                date: '18/4/2026',
-                amount: -85000,
-                iconColor: const Color(0xFFF97316),
-              ),
-              _buildTransactionItem(
-                icon: Icons.local_gas_station_rounded,
-                title: 'Bensin',
-                category: 'Transportasi',
-                date: '17/4/2026',
-                amount: -200000,
-                iconColor: const Color(0xFF8B5CF6),
-              ),
-              // Bottom padding
-              const SizedBox(height: 100),
-            ]),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildLoadingScreen(String message) {
-    return SizedBox.expand(
-      // ⬅️ kunci: memenuhi seluruh area
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+    return WillPopScope(
+      // ⭐ HANDLE BACK BUTTON (REFRESH KETIKA KEMBALI DARI HALAMAN LAIN)
+      onWillPop: () async {
+        return true;
+      },
+      child: Scaffold(
+        backgroundColor: Colors.grey.shade50,
+        body: Column(
           children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    const Color(0xFF1E3A8A).withOpacity(0.08),
-                    const Color(0xFF1E3A8A).withOpacity(0.15),
-                  ],
-                ),
-                shape: BoxShape.circle,
-              ),
-              child: const CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1E3A8A)),
-                strokeWidth: 3,
-              ),
+            Expanded(
+              child: IndexedStack(index: _selectedIndex, children: _pages),
             ),
-            const SizedBox(height: 24),
-            Text(
-              message,
-              style: const TextStyle(
-                color: Color(0xFF1E3A8A),
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
+            SafeArea(
+              bottom: true,
+              top: false,
+              child: BottomNavBar(
+                currentIndex: _selectedIndex,
+                onTap: _onTabChanged, // ⭐ GUNAKAN METHOD BARU
               ),
             ),
           ],
@@ -436,7 +214,321 @@ class _DashboardPageState extends State<DashboardPage>
       ),
     );
   }
+}
 
+// ==================== DASHBOARD CONTENT (DENGAN AUTO-REFRESH) ====================
+class DashboardContent extends StatefulWidget {
+  final String token;
+
+  const DashboardContent({super.key, required this.token});
+
+  @override
+  State<DashboardContent> createState() => _DashboardContentState();
+}
+
+class _DashboardContentState extends State<DashboardContent>
+    with WidgetsBindingObserver {
+  final PageController _pageController = PageController();
+
+  // Data dari API
+  double _balance = 0.0;
+  double _income = 0.0;
+  double _expense = 0.0;
+  List<Map<String, dynamic>> _recentTransactions = [];
+  Map<String, dynamic>? _financialSummary;
+
+  int _currentCardIndex = 0;
+  String _userName = 'Pengguna';
+  bool _isLoadingBalance = true;
+  bool _isLoadingTransactions = true;
+  bool _isLoadingStats = true;
+
+  final List<String> _months = [
+    'Januari',
+    'Februari',
+    'Maret',
+    'April',
+    'Mei',
+    'Juni',
+    'Juli',
+    'Agustus',
+    'September',
+    'Oktober',
+    'November',
+    'Desember',
+  ];
+
+  String get _currentMonthYear {
+    final now = DateTime.now();
+    return '${_months[now.month - 1]} ${now.year}';
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // ⭐ TAMBAHKAN OBSERVER UNTUK MONITORING APP LIFECYCLE
+    WidgetsBinding.instance.addObserver(this);
+    _loadAllData();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  // ⭐ DETECT KETIKA APP / HALAMAN MENJADI VISIBLE KEMBALI
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // App kembali dari background, refresh data
+      print('📱 App resumed, refreshing dashboard...');
+      refreshAllData();
+    }
+  }
+
+  // ⭐ PUBLIC METHOD UNTUK REFRESH DARI PARENT
+  void refreshAllData() {
+    print('🔄 refreshAllData() called');
+    _loadAllData();
+  }
+
+  // Load semua data dashboard
+  Future<void> _loadAllData() async {
+    print('📊 Loading all dashboard data...');
+    await Future.wait([
+      _loadUserData(),
+      _loadBalance(),
+      _loadStatistics(),
+      _loadRecentTransactions(),
+      _loadFinancialSummary(),
+    ]);
+  }
+
+  // ⭐ REFRESH DATA (PULL-TO-REFRESH)
+  Future<void> _refreshData() async {
+    print('👆 Pull-to-refresh triggered');
+    await _loadAllData();
+  }
+
+  Future<void> _loadUserData() async {
+    try {
+      final response = await AuthService.getUser(widget.token);
+      if (response['success'] == true && response['data'] != null) {
+        final userData = response['data'];
+        if (mounted) {
+          setState(() {
+            _userName = userData['name'] ?? 'Pengguna';
+          });
+        }
+      }
+    } catch (e) {
+      print('❌ Load User Data Error: $e');
+    }
+  }
+
+  Future<void> _loadBalance() async {
+    setState(() => _isLoadingBalance = true);
+    print('💰 Loading balance...');
+
+    try {
+      final response = await TransactionService.checkBalance(widget.token);
+      print('📊 Balance response: $response');
+
+      if (mounted) {
+        double newBalance = 0.0;
+
+        // Handle berbagai format response
+        if (response['balance'] != null) {
+          final balanceData = response['balance'];
+          if (balanceData is int) {
+            newBalance = balanceData.toDouble();
+          } else if (balanceData is double) {
+            newBalance = balanceData;
+          } else if (balanceData is String) {
+            newBalance = double.tryParse(balanceData) ?? 0.0;
+          }
+        } else if (response['data'] != null &&
+            response['data']['balance'] != null) {
+          final balanceData = response['data']['balance'];
+          if (balanceData is int) {
+            newBalance = balanceData.toDouble();
+          } else if (balanceData is double) {
+            newBalance = balanceData;
+          }
+        }
+
+        print('💰 New balance: $newBalance');
+        setState(() {
+          _balance = newBalance;
+          _isLoadingBalance = false;
+        });
+      }
+    } catch (e) {
+      print('❌ Error loading balance: $e');
+      if (mounted) {
+        setState(() => _isLoadingBalance = false);
+      }
+    }
+  }
+
+  Future<void> _loadStatistics() async {
+    setState(() => _isLoadingStats = true);
+    print('📈 Loading statistics...');
+
+    try {
+      final now = DateTime.now();
+      final response = await TransactionService.getStatistics(
+        token: widget.token,
+        period: 'month',
+        year: now.year,
+        month: now.month,
+      );
+
+      print('📊 Statistics response: $response');
+
+      if (mounted && response['data'] != null) {
+        final summary = response['data']['summary'];
+        setState(() {
+          _income = (summary['total_income'] ?? 0).toDouble();
+          _expense = (summary['total_expense'] ?? 0).toDouble();
+          _isLoadingStats = false;
+        });
+        print('📈 Income: $_income, Expense: $_expense');
+      }
+    } catch (e) {
+      print('❌ Error loading statistics: $e');
+      if (mounted) {
+        setState(() => _isLoadingStats = false);
+      }
+    }
+  }
+
+  Future<void> _loadRecentTransactions() async {
+    setState(() => _isLoadingTransactions = true);
+    print('📋 Loading recent transactions...');
+
+    try {
+      final response = await TransactionService.getTransactions(
+        token: widget.token,
+        page: 1,
+      );
+
+      print('📊 Transactions response received');
+
+      if (mounted && response['data'] != null) {
+        final transactions = response['data']['data'] ?? [];
+        setState(() {
+          _recentTransactions = List<Map<String, dynamic>>.from(
+            transactions.take(5), // Ambil 5 transaksi terbaru
+          );
+          _isLoadingTransactions = false;
+        });
+        print('📋 Loaded ${_recentTransactions.length} transactions');
+      }
+    } catch (e) {
+      print('❌ Error loading transactions: $e');
+      if (mounted) {
+        setState(() => _isLoadingTransactions = false);
+      }
+    }
+  }
+
+  Future<void> _loadFinancialSummary() async {
+    try {
+      print('🎯 Loading financial targets summary...');
+      final response = await FinancialTargetService.getSummary(
+        token: widget.token,
+      );
+
+      if (mounted && response['success'] == true) {
+        setState(() {
+          _financialSummary = response['data'];
+        });
+        print('🎯 Financial summary loaded');
+      }
+    } catch (e) {
+      print('❌ Error loading financial summary: $e');
+    }
+  }
+
+  String _formatCurrency(double amount) {
+    return 'Rp ${amount.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}';
+  }
+
+  String _formatRelativeDate(String dateStr) {
+    try {
+      final date = DateTime.parse(dateStr);
+      final now = DateTime.now();
+      final difference = now.difference(date);
+
+      if (difference.inDays == 0) {
+        return 'Hari ini';
+      } else if (difference.inDays == 1) {
+        return 'Kemarin';
+      } else if (difference.inDays < 7) {
+        return '${difference.inDays} hari lalu';
+      } else {
+        return '${date.day}/${date.month}/${date.year}';
+      }
+    } catch (e) {
+      return dateStr;
+    }
+  }
+
+  IconData _getTransactionIcon(String? categoryType, String type) {
+    if (type == 'income') {
+      return Icons.arrow_downward_rounded;
+    }
+
+    switch (categoryType?.toLowerCase()) {
+      case 'makanan':
+      case 'food':
+        return Icons.restaurant_rounded;
+      case 'transportasi':
+      case 'transport':
+        return Icons.directions_car_rounded;
+      case 'belanja':
+      case 'shopping':
+        return Icons.shopping_bag_outlined;
+      case 'tagihan':
+      case 'bills':
+        return Icons.receipt_long_rounded;
+      case 'hiburan':
+      case 'entertainment':
+        return Icons.movie_rounded;
+      default:
+        return Icons.payment_rounded;
+    }
+  }
+
+  Color _getTransactionColor(String type) {
+    return type == 'income' ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return RefreshIndicator(
+      onRefresh: _refreshData,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildTopBlueSection(),
+            _buildQuickFeatures(),
+            _buildFinancialTargetSummary(),
+            _buildRecentTransactionsHeader(),
+            _buildTransactionList(),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ==================== TOP BLUE SECTION ====================
   Widget _buildTopBlueSection() {
     return Container(
       decoration: const BoxDecoration(
@@ -471,61 +563,53 @@ class _DashboardPageState extends State<DashboardPage>
   Widget _buildHeader() {
     return Row(
       children: [
-        GestureDetector(
-          onTap: () {
-            Navigator.pushNamed(
-              context,
-              '/profile',
-              arguments: {'token': widget.token},
-            );
-          },
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(2),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.5),
-                    width: 2,
-                  ),
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.5),
+                  width: 2,
                 ),
-                child: CircleAvatar(
-                  radius: 22,
-                  backgroundColor: Colors.white.withOpacity(0.15),
-                  child: Text(
-                    _userName.isNotEmpty ? _userName[0].toUpperCase() : 'U',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
+              ),
+              child: CircleAvatar(
+                radius: 22,
+                backgroundColor: Colors.white.withOpacity(0.15),
+                child: Text(
+                  _userName.isNotEmpty ? _userName[0].toUpperCase() : 'U',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Selamat Datang,',
-                    style: TextStyle(fontSize: 12, color: Colors.white70),
+            ),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Selamat Datang,',
+                  style: TextStyle(fontSize: 12, color: Colors.white70),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _userName,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    _userName,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+                ),
+              ],
+            ),
+          ],
         ),
         const Spacer(),
+        // Notifikasi
         Container(
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(0.12),
@@ -533,7 +617,9 @@ class _DashboardPageState extends State<DashboardPage>
             border: Border.all(color: Colors.white.withOpacity(0.15), width: 1),
           ),
           child: IconButton(
-            onPressed: () {},
+            onPressed: () {
+              // TODO: Navigate to notifications
+            },
             icon: Stack(
               children: [
                 const Icon(
@@ -562,6 +648,7 @@ class _DashboardPageState extends State<DashboardPage>
           ),
         ),
         const SizedBox(width: 8),
+        // Logout
         Container(
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(0.12),
@@ -569,7 +656,11 @@ class _DashboardPageState extends State<DashboardPage>
             border: Border.all(color: Colors.white.withOpacity(0.15), width: 1),
           ),
           child: IconButton(
-            onPressed: _handleLogout,
+            onPressed: () {
+              final dashboardState =
+                  context.findAncestorStateOfType<_DashboardPageState>();
+              dashboardState?._handleLogout();
+            },
             icon: const Icon(
               Icons.logout_rounded,
               color: Colors.white,
@@ -621,6 +712,7 @@ class _DashboardPageState extends State<DashboardPage>
     );
   }
 
+  // Card 1: Cashflow (data dari API statistics)
   Widget _buildCashflowCard() {
     final double netCashflow = _income - _expense;
     final bool isPositive = netCashflow >= 0;
@@ -669,6 +761,16 @@ class _DashboardPageState extends State<DashboardPage>
                   ),
                 ],
               ),
+              const Spacer(),
+              if (_isLoadingStats)
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 10),
@@ -701,7 +803,7 @@ class _DashboardPageState extends State<DashboardPage>
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      _formatCurrency(_income),
+                      _isLoadingStats ? '...' : _formatCurrency(_income),
                       style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.bold,
@@ -738,7 +840,7 @@ class _DashboardPageState extends State<DashboardPage>
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      _formatCurrency(_expense),
+                      _isLoadingStats ? '...' : _formatCurrency(_expense),
                       style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.bold,
@@ -782,7 +884,9 @@ class _DashboardPageState extends State<DashboardPage>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '${isPositive ? '+' : ''}${_formatCurrency(netCashflow)}',
+                        _isLoadingStats
+                            ? '...'
+                            : '${isPositive ? '+' : ''}${_formatCurrency(netCashflow)}',
                         style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
@@ -790,7 +894,9 @@ class _DashboardPageState extends State<DashboardPage>
                         ),
                       ),
                       Text(
-                        isPositive
+                        _isLoadingStats
+                            ? 'Memuat...'
+                            : isPositive
                             ? 'Sisa keuangan positif'
                             : 'Sisa keuangan negatif',
                         style: TextStyle(
@@ -809,6 +915,7 @@ class _DashboardPageState extends State<DashboardPage>
     );
   }
 
+  // Card 2: Total Balance (data dari API balance)
   Widget _buildTotalBalanceCard() {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 2),
@@ -872,7 +979,7 @@ class _DashboardPageState extends State<DashboardPage>
           ),
           const SizedBox(height: 12),
           Text(
-            _formatCurrency(_balance),
+            _isLoadingBalance ? "Memuat..." : _formatCurrency(_balance),
             style: const TextStyle(
               fontSize: 32,
               fontWeight: FontWeight.bold,
@@ -908,6 +1015,7 @@ class _DashboardPageState extends State<DashboardPage>
     );
   }
 
+  // ==================== QUICK FEATURES ====================
   Widget _buildQuickFeatures() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -931,25 +1039,137 @@ class _DashboardPageState extends State<DashboardPage>
                 icon: Icons.description_rounded,
                 label: 'Laporan',
                 color: const Color(0xFF3B82F6),
-                onTap: () {},
+                onTap: () {
+                  final dashboardState =
+                      context.findAncestorStateOfType<_DashboardPageState>();
+                  dashboardState?.setState(() {
+                    dashboardState._selectedIndex = 1;
+                  });
+                },
               ),
               _buildQuickAction(
                 icon: Icons.flag_rounded,
                 label: 'Target',
                 color: const Color(0xFFF59E0B),
-                onTap: () {},
+                onTap: () {
+                  // ⭐ NAVIGASI KE HALAMAN TARGET
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder:
+                          (context) =>
+                              FinancialTargetListPage(token: widget.token),
+                    ),
+                  ).then((_) {
+                    // ⭐ REFRESH SAAT KEMBALI
+                    refreshAllData();
+                  });
+                },
               ),
               _buildQuickAction(
                 icon: Icons.cloud_upload_rounded,
                 label: 'Upload',
                 color: const Color(0xFF10B981),
-                onTap: () {},
+                onTap: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Fitur Upload segera hadir')),
+                  );
+                },
               ),
               _buildQuickAction(
                 icon: Icons.chat_bubble_rounded,
                 label: 'AI Chat',
                 color: const Color(0xFF8B5CF6),
-                onTap: () {},
+                onTap: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Fitur AI Chat segera hadir')),
+                  );
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // UPDATE BAGIAN FINANCIAL TARGET SUMMARY
+  Widget _buildFinancialTargetSummary() {
+    if (_financialSummary == null ||
+        (_financialSummary!['total_active'] == 0 &&
+            _financialSummary!['total_completed'] == 0)) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xFFF59E0B).withOpacity(0.1),
+            const Color(0xFFF59E0B).withOpacity(0.05),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.flag_rounded,
+                color: Color(0xFFF59E0B),
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'Target Keuangan',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+              const Spacer(),
+              TextButton(
+                onPressed: () {
+                  // ⭐ TAMBAHKAN NAVIGASI KE HALAMAN TARGET
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder:
+                          (context) =>
+                              FinancialTargetListPage(token: widget.token),
+                    ),
+                  ).then((_) {
+                    // ⭐ REFRESH DATA SAAT KEMBALI
+                    refreshAllData();
+                  });
+                },
+                child: const Text('Lihat Semua'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _buildTargetStatItem(
+                label: 'Aktif',
+                value: '${_financialSummary!['total_active'] ?? 0}',
+                color: const Color(0xFF10B981),
+              ),
+              _buildTargetStatItem(
+                label: 'Selesai',
+                value: '${_financialSummary!['total_completed'] ?? 0}',
+                color: const Color(0xFF3B82F6),
+              ),
+              _buildTargetStatItem(
+                label: 'Progress',
+                value: '${_financialSummary!['overall_progress'] ?? 0}%',
+                color: const Color(0xFFF59E0B),
               ),
             ],
           ),
@@ -998,17 +1218,128 @@ class _DashboardPageState extends State<DashboardPage>
     );
   }
 
-  Widget _buildTransactionItem({
-    required IconData icon,
-    required String title,
-    required String category,
-    required String date,
-    required double amount,
-    required Color iconColor,
+
+  Widget _buildTargetStatItem({
+    required String label,
+    required String value,
+    required Color color,
   }) {
-    final bool isIncome = amount > 0;
+    return Expanded(
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==================== RECENT TRANSACTIONS ====================
+  Widget _buildRecentTransactionsHeader() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const Text(
+            'Transaksi Terbaru',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF0F172A),
+            ),
+          ),
+          GestureDetector(
+            onTap: () {
+              // Pindah ke tab transaksi (index 2)
+              final dashboardState =
+                  context.findAncestorStateOfType<_DashboardPageState>();
+              dashboardState?.setState(() {
+                dashboardState._selectedIndex = 2;
+              });
+            },
+            child: const Text(
+              'Lihat Semua',
+              style: TextStyle(
+                fontSize: 13,
+                color: Color(0xFF1E3A8A),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTransactionList() {
+    if (_isLoadingTransactions) {
+      return const Padding(
+        padding: EdgeInsets.all(20),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_recentTransactions.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
+        child: Center(
+          child: Column(
+            children: [
+              Icon(
+                Icons.receipt_long_rounded,
+                size: 48,
+                color: Colors.grey.shade400,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Belum ada transaksi',
+                style: TextStyle(color: Colors.grey.shade500),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        children:
+            _recentTransactions.map((transaction) {
+              return _buildTransactionItem(transaction);
+            }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildTransactionItem(Map<String, dynamic> transaction) {
+    final bool isIncome = transaction['type'] == 'income';
+    final double amount =
+        double.tryParse(transaction['amount'].toString()) ?? 0;
+    final String categoryName = transaction['category']?['name'] ?? 'Lainnya';
+    final String title = transaction['title'] ?? 'Transaksi';
+    final String date = _formatRelativeDate(transaction['date'] ?? '');
+    final IconData icon = _getTransactionIcon(
+      categoryName,
+      transaction['type'],
+    );
+    final Color iconColor =
+        isIncome ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -1024,12 +1355,12 @@ class _DashboardPageState extends State<DashboardPage>
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: iconColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: iconColor, size: 16),
+            child: Icon(icon, color: iconColor, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1039,18 +1370,20 @@ class _DashboardPageState extends State<DashboardPage>
                 Text(
                   title,
                   style: const TextStyle(
-                    fontSize: 13,
+                    fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: Color(0xFF0F172A),
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
                 Row(
                   children: [
                     Text(
-                      category,
+                      categoryName,
                       style: TextStyle(
-                        fontSize: 10,
+                        fontSize: 11,
                         color: Colors.grey.shade500,
                       ),
                     ),
@@ -1067,7 +1400,7 @@ class _DashboardPageState extends State<DashboardPage>
                     Text(
                       date,
                       style: TextStyle(
-                        fontSize: 10,
+                        fontSize: 11,
                         color: Colors.grey.shade500,
                       ),
                     ),
@@ -1076,25 +1409,13 @@ class _DashboardPageState extends State<DashboardPage>
               ],
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
+          Text(
+            '${isIncome ? '+' : '-'}${_formatCurrency(amount.abs())}',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
               color:
-                  isIncome
-                      ? const Color(0xFF10B981).withOpacity(0.08)
-                      : const Color(0xFFEF4444).withOpacity(0.08),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              '${isIncome ? '+' : '-'}${_formatCurrency(amount.abs())}',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color:
-                    isIncome
-                        ? const Color(0xFF10B981)
-                        : const Color(0xFFEF4444),
-              ),
+                  isIncome ? const Color(0xFF10B981) : const Color(0xFFEF4444),
             ),
           ),
         ],

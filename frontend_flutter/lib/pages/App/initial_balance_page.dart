@@ -163,15 +163,15 @@ class _InitialBalancePageState extends State<InitialBalancePage> {
 
           print('🚀 Navigating to Dashboard...');
 
-          // GUNAKAN pushReplacement agar user tidak bisa kembali ke halaman ini
-          Navigator.pushReplacement(
+          // ⭐ PERBAIKAN: Gunakan pushAndRemoveUntil dengan route ke DashboardPage
+          Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(
               builder: (context) => DashboardPage(
                 token: widget.token,
-                skipCheckBalance: true, // ⭐ TAMBAHAN
               ),
             ),
+            (route) => false, // Hapus semua route sebelumnya
           );
         }
       } else {
@@ -195,66 +195,65 @@ class _InitialBalancePageState extends State<InitialBalancePage> {
     
     final shouldSkip = await showDialog<bool>(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            title: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    Icons.info_outline_rounded,
-                    color: Colors.orange.shade700,
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                const Text(
-                  'Konfirmasi',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ],
-            ),
-            content: Text(
-              'Anda yakin ingin melewati pengaturan saldo awal?\n'
-              'Saldo akan diatur ke Rp 0 dan Anda bisa menambahkannya nanti.',
-              style: TextStyle(color: Colors.grey.shade700, height: 1.5),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.grey.shade600,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 12,
-                  ),
-                ),
-                child: const Text('Batal'),
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(12),
               ),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1E3A8A),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 12,
-                  ),
-                ),
-                child: const Text('Ya, Lewati'),
+              child: Icon(
+                Icons.info_outline_rounded,
+                color: Colors.orange.shade700,
+                size: 24,
               ),
-            ],
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'Konfirmasi',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+        content: Text(
+          'Anda yakin ingin melewati pengaturan saldo awal?\n'
+          'Saldo akan diatur ke Rp 0 dan Anda bisa menambahkannya nanti.',
+          style: TextStyle(color: Colors.grey.shade700, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.grey.shade600,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 12,
+              ),
+            ),
+            child: const Text('Batal'),
           ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1E3A8A),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 12,
+              ),
+            ),
+            child: const Text('Ya, Lewati'),
+          ),
+        ],
+      ),
     );
 
     if (shouldSkip != true) return;
@@ -281,13 +280,15 @@ class _InitialBalancePageState extends State<InitialBalancePage> {
 
         print('🚀 Navigating to Dashboard after skip...');
 
-        Navigator.pushReplacementNamed(
+        // ⭐ PERBAIKAN: Gunakan pushAndRemoveUntil dengan route ke DashboardPage
+        Navigator.pushAndRemoveUntil(
           context,
-          '/home',
-          arguments: {
-            'token': widget.token,
-            'skipCheckBalance': true,
-          },
+          MaterialPageRoute(
+            builder: (context) => DashboardPage(
+              token: widget.token,
+            ),
+          ),
+          (route) => false, // Hapus semua route sebelumnya
         );
       }
     } catch (e) {
@@ -302,53 +303,52 @@ class _InitialBalancePageState extends State<InitialBalancePage> {
   void _showErrorDialog(String message) {
     showDialog(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            title: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFDC2626).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.error_outline_rounded,
-                    color: Color(0xFFDC2626),
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                const Text(
-                  'Gagal',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ],
-            ),
-            content: Text(
-              message,
-              style: TextStyle(color: Colors.grey.shade700, height: 1.5),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xFF1E3A8A),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 12,
-                  ),
-                ),
-                child: const Text(
-                  'OK',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFDC2626).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
               ),
-            ],
+              child: const Icon(
+                Icons.error_outline_rounded,
+                color: Color(0xFFDC2626),
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'Gagal',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+        content: Text(
+          message,
+          style: TextStyle(color: Colors.grey.shade700, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF1E3A8A),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 12,
+              ),
+            ),
+            child: const Text(
+              'OK',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
           ),
+        ],
+      ),
     );
   }
 
@@ -505,10 +505,9 @@ class _InitialBalancePageState extends State<InitialBalancePage> {
                           color: Colors.grey.shade50,
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color:
-                                _focusNode.hasFocus
-                                    ? const Color(0xFF1E3A8A)
-                                    : Colors.grey.shade200,
+                            color: _focusNode.hasFocus
+                                ? const Color(0xFF1E3A8A)
+                                : Colors.grey.shade200,
                             width: _focusNode.hasFocus ? 2 : 1,
                           ),
                         ),
@@ -557,28 +556,27 @@ class _InitialBalancePageState extends State<InitialBalancePage> {
                                     horizontal: 16,
                                     vertical: 16,
                                   ),
-                                  suffixIcon:
-                                      _rawValue.isNotEmpty
-                                          ? GestureDetector(
-                                            onTap: _clearInput,
-                                            child: Container(
-                                              margin: const EdgeInsets.only(
-                                                right: 8,
-                                              ),
-                                              padding: const EdgeInsets.all(8),
-                                              decoration: BoxDecoration(
-                                                color: Colors.grey.shade200,
-                                                borderRadius:
-                                                    BorderRadius.circular(20),
-                                              ),
-                                              child: const Icon(
-                                                Icons.close_rounded,
-                                                size: 16,
-                                                color: Colors.grey,
-                                              ),
-                                            ),
-                                          )
-                                          : null,
+                                  suffixIcon: _rawValue.isNotEmpty
+                                      ? GestureDetector(
+                                        onTap: _clearInput,
+                                        child: Container(
+                                          margin: const EdgeInsets.only(
+                                            right: 8,
+                                          ),
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            color: Colors.grey.shade200,
+                                            borderRadius:
+                                                BorderRadius.circular(20),
+                                          ),
+                                          child: const Icon(
+                                            Icons.close_rounded,
+                                            size: 16,
+                                            color: Colors.grey,
+                                          ),
+                                        ),
+                                      )
+                                      : null,
                                 ),
                                 inputFormatters: [
                                   FilteringTextInputFormatter.digitsOnly,
@@ -668,12 +666,11 @@ class _InitialBalancePageState extends State<InitialBalancePage> {
                         width: double.infinity,
                         height: 52,
                         child: ElevatedButton(
-                          onPressed:
-                              (_rawValue.isNotEmpty &&
-                                      !_isLoading &&
-                                      !_isSkipLoading)
-                                  ? _handleSetInitialBalance
-                                  : null,
+                          onPressed: (_rawValue.isNotEmpty &&
+                                  !_isLoading &&
+                                  !_isSkipLoading)
+                              ? _handleSetInitialBalance
+                              : null,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF1E3A8A),
                             foregroundColor: Colors.white,
@@ -683,32 +680,31 @@ class _InitialBalancePageState extends State<InitialBalancePage> {
                             elevation: 0,
                             disabledBackgroundColor: Colors.grey.shade300,
                           ),
-                          child:
-                              _isLoading
-                                  ? const SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2.5,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                        Colors.white,
-                                      ),
-                                    ),
-                                  )
-                                  : const Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        'Simpan & Mulai',
-                                        style: TextStyle(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      SizedBox(width: 6),
-                                      Icon(Icons.arrow_forward_rounded, size: 18),
-                                    ],
+                          child: _isLoading
+                              ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.white,
                                   ),
+                                ),
+                              )
+                              : const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    'Simpan & Mulai',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  SizedBox(width: 6),
+                                  Icon(Icons.arrow_forward_rounded, size: 18),
+                                ],
+                              ),
                         ),
                       ),
   
@@ -719,34 +715,32 @@ class _InitialBalancePageState extends State<InitialBalancePage> {
                         width: double.infinity,
                         height: 44,
                         child: TextButton(
-                          onPressed:
-                              (_isLoading || _isSkipLoading) ? null : _handleSkip,
+                          onPressed: (_isLoading || _isSkipLoading) ? null : _handleSkip,
                           style: TextButton.styleFrom(
                             foregroundColor: Colors.grey.shade600,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(14),
                             ),
                           ),
-                          child:
-                              _isSkipLoading
-                                  ? SizedBox(
-                                    height: 18,
-                                    width: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                        Colors.grey.shade600,
-                                      ),
-                                    ),
-                                  )
-                                  : Text(
-                                    'Lewati, mulai dengan saldo Rp 0',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w500,
-                                      color: Colors.grey.shade600,
-                                    ),
+                          child: _isSkipLoading
+                              ? SizedBox(
+                                height: 18,
+                                width: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.grey.shade600,
                                   ),
+                                ),
+                              )
+                              : Text(
+                                'Lewati, mulai dengan saldo Rp 0',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
                         ),
                       ),
                     ],
@@ -766,14 +760,12 @@ class _InitialBalancePageState extends State<InitialBalancePage> {
     final isSelected = _rawValue == amount.toString();
 
     return GestureDetector(
-      onTap:
-          (_isLoading || _isSkipLoading) ? null : () => _setQuickAmount(amount),
+      onTap: (_isLoading || _isSkipLoading) ? null : () => _setQuickAmount(amount),
       child: Container(
         decoration: BoxDecoration(
-          color:
-              isSelected
-                  ? const Color(0xFF1E3A8A).withOpacity(0.1)
-                  : Colors.grey.shade50,
+          color: isSelected
+              ? const Color(0xFF1E3A8A).withOpacity(0.1)
+              : Colors.grey.shade50,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected ? const Color(0xFF1E3A8A) : Colors.grey.shade200,
@@ -786,8 +778,7 @@ class _InitialBalancePageState extends State<InitialBalancePage> {
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color:
-                  isSelected ? const Color(0xFF1E3A8A) : Colors.grey.shade700,
+              color: isSelected ? const Color(0xFF1E3A8A) : Colors.grey.shade700,
             ),
           ),
         ),

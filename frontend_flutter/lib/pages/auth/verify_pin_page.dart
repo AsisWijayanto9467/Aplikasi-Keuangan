@@ -184,12 +184,13 @@ class _VerifyPinPageState extends State<VerifyPinPage> {
 
       // Di dalam VerifyPinPage, method _checkBalanceAndNavigate
       if (isInitialized) {
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          '/home',
-          (route) => false,
-          arguments: {'token': widget.token, 'skipCheckBalance': true},
-        );
+        Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(
+          builder: (context) => DashboardPage(token: widget.token),
+        ),
+        (route) => false,
+      );
       } else {
         Navigator.pushNamedAndRemoveUntil(
           context,
@@ -207,7 +208,7 @@ class _VerifyPinPageState extends State<VerifyPinPage> {
           MaterialPageRoute(
             builder:
                 (context) =>
-                    DashboardPage(token: widget.token, skipCheckBalance: true),
+                    DashboardPage(token: widget.token),
           ),
           (route) => false,
         );

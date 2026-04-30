@@ -57,11 +57,10 @@ class TransactionController extends Controller
     {
         try {
             $user = $request->user();
-            $period = $request->get('period', 'month'); // month, week, year
+            $period = $request->get('period', 'month');
             $year = $request->get('year', date('Y'));
             $month = $request->get('month', date('m'));
 
-            // Query untuk data kategori dengan total amount
             $categoryStats = Transaction::with('category')
                 ->where('user_id', $user->id)
                 ->whereYear('date', $year)
@@ -72,7 +71,6 @@ class TransactionController extends Controller
                 ->groupBy('category_id', 'type')
                 ->get();
 
-            // Format data untuk pie chart (pengeluaran per kategori)
             $expenseByCategory = [];
             $incomeByCategory = [];
 

@@ -56,7 +56,6 @@ class _MainLayoutState extends State<MainLayout> {
     _pages = [
       DashboardPage(
         token: widget.token,
-        skipCheckBalance: true,
       ),
       StatisticsPage(token: widget.token),
       TransactionsPage(token: widget.token),

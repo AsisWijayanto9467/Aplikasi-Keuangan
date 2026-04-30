@@ -4,6 +4,7 @@ use App\Http\Controllers\API\AuthController;
 use App\Http\Controllers\API\BalanceController;
 use App\Http\Controllers\API\BudgetController;
 use App\Http\Controllers\API\CategoryController;
+use App\Http\Controllers\API\FinancialTargetController;
 use App\Http\Controllers\API\TransactionController;
 use Illuminate\Support\Facades\Route;
 
@@ -51,6 +52,17 @@ Route::prefix("v1")->group(function() {
             // Reset
             Route::post('/reset/transactions', [BudgetController::class, 'resetTransactions']);
             Route::delete('/reset/all', [BudgetController::class, 'resetAllBudget']);
+        });
+
+        // financial  target
+        Route::prefix('financial-targets')->group(function () {
+            Route::get('/', [FinancialTargetController::class, 'index']);
+            Route::get('/summary', [FinancialTargetController::class, 'getSummary']);
+            Route::post('/', [FinancialTargetController::class, 'store']);
+            Route::get('/{id}', [FinancialTargetController::class, 'show']);
+            Route::get('/{id}/progress', [FinancialTargetController::class, 'getProgressData']);
+            Route::post('/{id}/savings', [FinancialTargetController::class, 'addSaving']);
+            Route::post('/{id}/cancel', [FinancialTargetController::class, 'cancel']);
         });
     });
 

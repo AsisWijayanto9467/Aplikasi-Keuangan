@@ -1,5 +1,6 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
+import 'package:frontend_flutter/pages/App/dashboard.dart';
 import 'package:frontend_flutter/pages/layouts/main_layout.dart';
 import 'package:frontend_flutter/pages/auth/login_page.dart';
 import 'package:frontend_flutter/pages/auth/register_page.dart';
@@ -38,12 +39,15 @@ class MyApp extends StatelessWidget {
           final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
           return VerifyPinPage(token: args?['token'] ?? '');
         },
-        
-        // ⭐ ROUTE BARU: Home (MainLayout) sebagai halaman utama setelah login
-        '/home': (context) {
+
+        '/dashboard': (context) {
           final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
-          return HomePage(token: args?['token'] ?? '');
+          return DashboardPage(token: args?['token'] ?? '');
         },
+        
+        
+
+
         
         '/profile': (context) {
           final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
@@ -61,44 +65,6 @@ class MyApp extends StatelessWidget {
         // '/add-transaction': ...
         // '/budgets': ...
         // '/transaction-history': ...
-      },
-    );
-  }
-}
-
-// ⭐ TAMBAHKAN HOMEPAGE SEBAGAI WRAPPER MAINLAYOUT
-class HomePage extends StatefulWidget {
-  final String token;
-  final int initialIndex; // ⭐ Tambahkan parameter ini
-  
-  const HomePage({
-    super.key,
-    required this.token,
-    this.initialIndex = 0, // ⭐ Default ke 0 (Dashboard)
-  });
-  
-  @override
-  State<HomePage> createState() => _HomePageState();
-}
-
-class _HomePageState extends State<HomePage> {
-  late int _currentIndex;
-  
-  @override
-  void initState() {
-    super.initState();
-    _currentIndex = widget.initialIndex; // ⭐ Gunakan initialIndex
-  }
-  
-  @override
-  Widget build(BuildContext context) {
-    return MainLayout(
-      token: widget.token,
-      currentIndex: _currentIndex,
-      onNavigationChanged: (index) {
-        setState(() {
-          _currentIndex = index;
-        });
       },
     );
   }

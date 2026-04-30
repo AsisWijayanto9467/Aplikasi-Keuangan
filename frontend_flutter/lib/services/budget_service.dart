@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class BudgetService {
-  static const String baseUrl = 'http://192.168.137.1:8000/api/v1/budget';
+  static const String baseUrl = 'http://10.152.224.235:8000/api/v1/budget';
 
   // Headers helper
   static Map<String, String> _headers({required String token}) {
