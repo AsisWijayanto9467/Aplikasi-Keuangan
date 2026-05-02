@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:frontend_flutter/pages/App/financial_target_list.dart';
+import 'package:frontend_flutter/pages/App/report.dart';
 import 'package:frontend_flutter/pages/auth/login_page.dart';
 import 'package:frontend_flutter/pages/App/statistic_page.dart';
 import 'package:frontend_flutter/pages/App/transaction_page.dart';
@@ -1040,10 +1041,16 @@ class _DashboardContentState extends State<DashboardContent>
                 label: 'Laporan',
                 color: const Color(0xFF3B82F6),
                 onTap: () {
-                  final dashboardState =
-                      context.findAncestorStateOfType<_DashboardPageState>();
-                  dashboardState?.setState(() {
-                    dashboardState._selectedIndex = 1;
+                   // ⭐ NAVIGASI KE HALAMAN TARGET
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder:
+                          (context) =>
+                              StatisticReportPage(token: widget.token),
+                    ),
+                  ).then((_) {
+                    refreshAllData();
                   });
                 },
               ),

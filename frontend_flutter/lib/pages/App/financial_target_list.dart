@@ -4,7 +4,6 @@ import 'package:frontend_flutter/pages/App/create_financial_target_page.dart';
 import 'package:frontend_flutter/pages/App/financial_target_detail.dart';
 import 'package:frontend_flutter/pages/auth/login_page.dart';
 import 'package:frontend_flutter/services/financial_target_service.dart';
-import 'package:intl/intl.dart';
 
 class FinancialTargetListPage extends StatefulWidget {
   final String token;
