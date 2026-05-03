@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:frontend_flutter/pages/App/chatbot_page.dart';
 import 'package:frontend_flutter/pages/App/financial_target_list.dart';
 import 'package:frontend_flutter/pages/App/report.dart';
 import 'package:frontend_flutter/pages/auth/login_page.dart';
@@ -1041,13 +1042,12 @@ class _DashboardContentState extends State<DashboardContent>
                 label: 'Laporan',
                 color: const Color(0xFF3B82F6),
                 onTap: () {
-                   // ⭐ NAVIGASI KE HALAMAN TARGET
+                  // ⭐ NAVIGASI KE HALAMAN TARGET
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder:
-                          (context) =>
-                              StatisticReportPage(token: widget.token),
+                          (context) => StatisticReportPage(token: widget.token),
                     ),
                   ).then((_) {
                     refreshAllData();
@@ -1088,9 +1088,18 @@ class _DashboardContentState extends State<DashboardContent>
                 label: 'AI Chat',
                 color: const Color(0xFF8B5CF6),
                 onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Fitur AI Chat segera hadir')),
-                  );
+                  // ⭐ NAVIGASI KE HALAMAN TARGET
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder:
+                          (context) =>
+                             AiChatPage(token: widget.token),
+                    ),
+                  ).then((_) {
+                    // ⭐ REFRESH SAAT KEMBALI
+                    refreshAllData();
+                  });
                 },
               ),
             ],
@@ -1224,7 +1233,6 @@ class _DashboardContentState extends State<DashboardContent>
       ),
     );
   }
-
 
   Widget _buildTargetStatItem({
     required String label,

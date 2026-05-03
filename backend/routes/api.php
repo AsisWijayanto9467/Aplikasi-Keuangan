@@ -4,6 +4,7 @@ use App\Http\Controllers\API\AuthController;
 use App\Http\Controllers\API\BalanceController;
 use App\Http\Controllers\API\BudgetController;
 use App\Http\Controllers\API\CategoryController;
+use App\Http\Controllers\API\ChatController;
 use App\Http\Controllers\API\FinancialTargetController;
 use App\Http\Controllers\API\TransactionController;
 use Illuminate\Support\Facades\Route;
@@ -64,6 +65,10 @@ Route::prefix("v1")->group(function() {
             Route::post('/{id}/savings', [FinancialTargetController::class, 'addSaving']);
             Route::post('/{id}/cancel', [FinancialTargetController::class, 'cancel']);
         });
+
+        // AI chatbot
+        Route::get('/chat/greeting', [ChatController::class, 'getGreeting']);
+        Route::post('/chat/send', [ChatController::class, 'sendChat']);
     });
 
     Route::middleware(['auth:sanctum', 'balance'], )->group(function () {
