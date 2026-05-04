@@ -81,5 +81,6 @@ Route::prefix("v1")->group(function() {
             Route::delete('/{id}', [TransactionController::class, 'destroy']);
             Route::get('/{id}', [TransactionController::class, 'show']);
         });
+        Route::post('/scan-receipt', [TransactionController::class, 'scanReceipt']);
     });
 });

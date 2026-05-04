@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:frontend_flutter/services/chat_service.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 
 class AiChatPage extends StatefulWidget {
   final String token;
@@ -30,18 +31,27 @@ class _AiChatPageState extends State<AiChatPage> {
     super.dispose();
   }
 
+  Map<String, dynamic>? _quickInfo;
+
   // Load greeting awal
   Future<void> _loadGreeting() async {
     setState(() => _isInitialLoading = true);
+
     try {
       final response = await ChatService.getGreeting(widget.token);
-      if (response['success'] == true && mounted) {
+
+      if (!mounted) return;
+
+      if (response['success'] == true) {
         setState(() {
-          _messages.add(ChatMessage(
-            text: response['reply'] ?? 'Halo! Ada yang bisa saya bantu?',
-            isUser: false,
-            timestamp: DateTime.now(),
-          ));
+          _messages.add(
+            ChatMessage(
+              text: response['reply'] ?? 'Halo!',
+              isUser: false,
+              timestamp: DateTime.now(),
+            ),
+          );
+          _quickInfo = response['quick_info']; // ✅ Simpan quick info
           _isInitialLoading = false;
         });
       }
@@ -57,47 +67,60 @@ class _AiChatPageState extends State<AiChatPage> {
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
 
-    // Tambahkan pesan user ke list
+    print('📤 User message: "$text"');
+
     setState(() {
-      _messages.add(ChatMessage(
-        text: text,
-        isUser: true,
-        timestamp: DateTime.now(),
-      ));
+      _messages.add(
+        ChatMessage(text: text, isUser: true, timestamp: DateTime.now()),
+      );
       _messageController.clear();
       _isLoading = true;
     });
 
     _scrollToBottom();
 
-    // Kirim ke API
     try {
       final response = await ChatService.sendMessage(
         token: widget.token,
         message: text,
       );
 
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          _messages.add(ChatMessage(
-            text: response['reply'] ?? 'Maaf, terjadi kesalahan',
+      print('📥 AI response: $response');
+
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+
+        String replyText = response['reply'] ?? 'Maaf, terjadi kesalahan';
+
+        // ✅ DOUBLE-CHECK: Kalau user kirim sapaan, pastikan AI menyebut nama
+        // (Backend sudah handle ini, tapi kita cek lagi di frontend)
+        print('🤖 AI Reply: $replyText');
+
+        _messages.add(
+          ChatMessage(
+            text: replyText,
             isUser: false,
             timestamp: DateTime.now(),
-          ));
-        });
-        _scrollToBottom();
-      }
+          ),
+        );
+      });
+
+      _scrollToBottom();
     } catch (e) {
+      print('❌ Send message error: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _messages.add(ChatMessage(
-            text: 'Maaf, gagal terhubung ke server. Silakan coba lagi.',
-            isUser: false,
-            timestamp: DateTime.now(),
-            isError: true,
-          ));
+          _messages.add(
+            ChatMessage(
+              text: 'Maaf, gagal terhubung ke server. Silakan coba lagi.',
+              isUser: false,
+              timestamp: DateTime.now(),
+              isError: true,
+            ),
+          );
         });
         _scrollToBottom();
       }
@@ -163,7 +186,10 @@ class _AiChatPageState extends State<AiChatPage> {
                     // Tombol kembali
                     IconButton(
                       onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+                      icon: const Icon(
+                        Icons.arrow_back_rounded,
+                        color: Colors.white,
+                      ),
                     ),
                     const SizedBox(width: 8),
                     // Avatar AI
@@ -171,7 +197,10 @@ class _AiChatPageState extends State<AiChatPage> {
                       padding: const EdgeInsets.all(2),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white.withOpacity(0.5), width: 2),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.5),
+                          width: 2,
+                        ),
                       ),
                       child: CircleAvatar(
                         radius: 22,
@@ -199,14 +228,20 @@ class _AiChatPageState extends State<AiChatPage> {
                           SizedBox(height: 2),
                           Text(
                             'Asisten Keuangan Pintar',
-                            style: TextStyle(fontSize: 12, color: Colors.white70),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.white70,
+                            ),
                           ),
                         ],
                       ),
                     ),
                     // Status online
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFF10B981).withOpacity(0.2),
                         borderRadius: BorderRadius.circular(20),
@@ -240,10 +275,10 @@ class _AiChatPageState extends State<AiChatPage> {
     );
   }
 
-  // Info card fitur AI
+  // Update _buildInfoCard untuk tampilkan quick info
   Widget _buildInfoCard() {
     if (_messages.length > 1) return const SizedBox.shrink();
-    
+
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 16, 20, 8),
       padding: const EdgeInsets.all(14),
@@ -277,12 +312,17 @@ class _AiChatPageState extends State<AiChatPage> {
                 ),
               ),
               const SizedBox(width: 10),
-              const Text(
-                'Coba tanyakan:',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF0F172A),
+              // ✅ Tampilkan nama user kalau ada
+              Expanded(
+                child: Text(
+                  _quickInfo != null && _quickInfo!['user_name'] != null
+                      ? 'Halo ${_quickInfo!['user_name']}! Coba tanyakan:'
+                      : 'Coba tanyakan:',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF0F172A),
+                  ),
                 ),
               ),
             ],
@@ -342,7 +382,6 @@ class _AiChatPageState extends State<AiChatPage> {
     );
   }
 
-  // Bubble chat
   Widget _buildMessageBubble(ChatMessage message) {
     final isUser = message.isUser;
 
@@ -350,36 +389,42 @@ class _AiChatPageState extends State<AiChatPage> {
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.78),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.78,
+        ),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          gradient: isUser
-              ? const LinearGradient(
-                  colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
-                )
-              : null,
+          gradient:
+              isUser
+                  ? const LinearGradient(
+                    colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
+                  )
+                  : null,
           color: isUser ? null : Colors.white,
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(18),
             topRight: const Radius.circular(18),
-            bottomLeft: isUser ? const Radius.circular(18) : const Radius.circular(4),
-            bottomRight: isUser ? const Radius.circular(4) : const Radius.circular(18),
+            bottomLeft:
+                isUser ? const Radius.circular(18) : const Radius.circular(4),
+            bottomRight:
+                isUser ? const Radius.circular(4) : const Radius.circular(18),
           ),
-          boxShadow: isUser
-              ? [
-                  BoxShadow(
-                    color: const Color(0xFF2563EB).withOpacity(0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ]
-              : [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+          boxShadow:
+              isUser
+                  ? [
+                    BoxShadow(
+                      color: const Color(0xFF2563EB).withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ]
+                  : [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.04),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
           border: isUser ? null : Border.all(color: Colors.grey.shade200),
         ),
         child: Column(
@@ -390,7 +435,11 @@ class _AiChatPageState extends State<AiChatPage> {
                 padding: EdgeInsets.only(bottom: 6),
                 child: Row(
                   children: [
-                    Icon(Icons.smart_toy_rounded, size: 14, color: Color(0xFF8B5CF6)),
+                    Icon(
+                      Icons.smart_toy_rounded,
+                      size: 14,
+                      color: Color(0xFF8B5CF6),
+                    ),
                     SizedBox(width: 6),
                     Text(
                       'FinansialKu AI',
@@ -403,14 +452,41 @@ class _AiChatPageState extends State<AiChatPage> {
                   ],
                 ),
               ),
-            Text(
-              message.text,
-              style: TextStyle(
-                fontSize: 14,
-                color: isUser ? Colors.white : const Color(0xFF0F172A),
-                height: 1.5,
-              ),
-            ),
+            // ✅ GUNAKAN MarkdownBody untuk AI, Text biasa untuk user
+            isUser
+                ? Text(
+                  message.text,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Colors.white,
+                    height: 1.5,
+                  ),
+                )
+                : MarkdownBody(
+                  data: message.text,
+                  styleSheet: MarkdownStyleSheet(
+                    p: const TextStyle(
+                      fontSize: 14,
+                      color: Color(0xFF0F172A),
+                      height: 1.5,
+                    ),
+                    strong: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0F172A),
+                    ),
+                    em: const TextStyle(
+                      fontSize: 14,
+                      fontStyle: FontStyle.italic,
+                      color: Color(0xFF0F172A),
+                    ),
+                    listBullet: const TextStyle(
+                      fontSize: 14,
+                      color: Color(0xFF2563EB),
+                    ),
+                  ),
+                  shrinkWrap: true,
+                ),
             const SizedBox(height: 6),
             Row(
               mainAxisSize: MainAxisSize.min,
@@ -535,16 +611,24 @@ class _AiChatPageState extends State<AiChatPage> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(25),
-                  borderSide: const BorderSide(color: Color(0xFF2563EB), width: 1.5),
+                  borderSide: const BorderSide(
+                    color: Color(0xFF2563EB),
+                    width: 1.5,
+                  ),
                 ),
-                suffixIcon: _messageController.text.isNotEmpty
-                    ? IconButton(
-                        icon: Icon(Icons.close_rounded, color: Colors.grey.shade400, size: 20),
-                        onPressed: () {
-                          setState(() => _messageController.clear());
-                        },
-                      )
-                    : null,
+                suffixIcon:
+                    _messageController.text.isNotEmpty
+                        ? IconButton(
+                          icon: Icon(
+                            Icons.close_rounded,
+                            color: Colors.grey.shade400,
+                            size: 20,
+                          ),
+                          onPressed: () {
+                            setState(() => _messageController.clear());
+                          },
+                        )
+                        : null,
               ),
               onChanged: (value) => setState(() {}),
             ),

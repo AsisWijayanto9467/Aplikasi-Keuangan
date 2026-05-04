@@ -9,6 +9,7 @@ use App\Models\Transaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class TransactionController extends Controller
 {
@@ -64,7 +65,7 @@ class TransactionController extends Controller
             $categoryStats = Transaction::with('category')
                 ->where('user_id', $user->id)
                 ->whereYear('date', $year)
-                ->when($period == 'month', function($query) use ($month) {
+                ->when($period == 'month', function ($query) use ($month) {
                     return $query->whereMonth('date', $month);
                 })
                 ->selectRaw('category_id, type, SUM(amount) as total_amount')
@@ -149,7 +150,7 @@ class TransactionController extends Controller
             // Total summary
             $totalIncome = Transaction::where('user_id', $user->id)
                 ->whereYear('date', $year)
-                ->when($period == 'month', function($query) use ($month) {
+                ->when($period == 'month', function ($query) use ($month) {
                     return $query->whereMonth('date', $month);
                 })
                 ->where('type', 'income')
@@ -157,7 +158,7 @@ class TransactionController extends Controller
 
             $totalExpense = Transaction::where('user_id', $user->id)
                 ->whereYear('date', $year)
-                ->when($period == 'month', function($query) use ($month) {
+                ->when($period == 'month', function ($query) use ($month) {
                     return $query->whereMonth('date', $month);
                 })
                 ->where('type', 'expense')
@@ -186,7 +187,6 @@ class TransactionController extends Controller
                     'trend_data' => $trendData
                 ]
             ]);
-
         } catch (\Throwable $th) {
             return response()->json([
                 "message" => "Server Error",
@@ -447,5 +447,301 @@ class TransactionController extends Controller
                 "errors" => $th->getMessage()
             ], 500);
         }
+    }
+
+    public function scanReceipt(Request $request)
+    {
+        try {
+            $request->validate([
+                'image' => 'required|image|mimes:jpeg,png,jpg|max:5120',
+            ]);
+
+            $user = $request->user();
+
+            // 1. Simpan gambar sementara
+            $image = $request->file('image');
+            $imagePath = $image->store('receipts', 'public');
+            $fullImagePath = storage_path('app/public/' . $imagePath);
+
+            // 2. Convert gambar ke base64
+            $imageData = base64_encode(file_get_contents($fullImagePath));
+            $mimeType = $image->getMimeType();
+
+            // 3. Kirim ke OpenRouter untuk ekstraksi
+            $extractedData = $this->extractReceiptData($imageData, $mimeType);
+
+            // 4. Hapus gambar sementara
+            if (file_exists($fullImagePath)) {
+                unlink($fullImagePath);
+            }
+
+            // 5. Cari kategori yang cocok
+            $suggestedCategory = $this->findMatchingCategory(
+                $extractedData['title'] ?? '',
+                $extractedData['description'] ?? '',
+                $extractedData['raw_text'] ?? ''
+            );
+
+            // 6. Format amount (pastikan integer)
+            $amount = is_numeric($extractedData['amount'] ?? 0)
+                ? (int) $extractedData['amount']
+                : 0;
+
+            // 7. Validasi dan format tanggal
+            $date = $this->parseDate($extractedData['date'] ?? date('Y-m-d'));
+
+            // 8. Validasi payment method
+            $validPaymentMethods = ['cash', 'qris', 'transfer', 'debit', 'credit'];
+            $paymentMethod = in_array(strtolower($extractedData['payment_method'] ?? 'cash'), $validPaymentMethods)
+                ? strtolower($extractedData['payment_method'])
+                : 'cash';
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Struk berhasil di-scan',
+                'data' => [
+                    'title' => $extractedData['title'] ?? 'Pembelian BBM',
+                    'amount' => $amount,
+                    'date' => $date,
+                    'description' => $extractedData['description'] ?? 'Pembelian di Pertamina',
+                    'payment_method' => $paymentMethod,
+                    'suggested_category_id' => $suggestedCategory,
+                    'type' => 'expense',
+                    'raw_text' => $extractedData['raw_text'] ?? '',
+                ]
+            ]);
+        } catch (\Throwable $th) {
+            Log::error('Scan Receipt Error: ' . $th->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal memproses struk',
+                'errors' => $th->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Parse dan validasi tanggal
+     */
+    private function parseDate($dateString): string
+    {
+        try {
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateString)) {
+                $carbon = \Carbon\Carbon::createFromFormat('Y-m-d', $dateString);
+                if ($carbon && $carbon->year > 2000 && $carbon->year <= (int) date('Y')) {
+                    return $carbon->format('Y-m-d');
+                }
+            }
+
+            if (preg_match('/^(\d{2})\/(\d{2})\/(\d{4})$/', $dateString, $matches)) {
+                $carbon = \Carbon\Carbon::createFromFormat('d/m/Y', $dateString);
+                if ($carbon && $carbon->year > 2000) {
+                    return $carbon->format('Y-m-d');
+                }
+            }
+
+            $timestamp = strtotime($dateString);
+            if ($timestamp !== false && date('Y', $timestamp) > 2000) {
+                return date('Y-m-d', $timestamp);
+            }
+        } catch (\Exception $e) {
+            Log::warning('Date parse error: ' . $e->getMessage());
+        }
+
+        // Fallback ke hari ini
+        return date('Y-m-d');
+    }
+
+    /**
+     * Ekstrak data dari gambar struk menggunakan AI Vision
+     */
+    private function extractReceiptData(string $imageData, string $mimeType): array
+    {
+        $apiKey = config('services.openrouter.api_key');
+        $model = 'google/gemini-2.0-flash-lite-001';
+
+        $prompt = "Anda adalah AI pembaca struk Indonesia. Ekstrak informasi berikut dan KEMBALIKAN HANYA JSON VALID (tanpa markdown, tanpa penjelasan):
+        {
+            \"title\": \"Judul transaksi (contoh: Pembelian BBM, Makan di Restoran, Belanja Bulanan)\",
+            \"amount\": 250000 (nominal total, ANGKA SAJA tanpa Rp, titik, atau koma),
+            \"date\": \"2021-10-27\" (format YYYY-MM-DD, konversi dari format apapun di struk),
+            \"description\": \"Deskripsi singkat (nama toko/tempat, item utama)\",
+            \"payment_method\": \"cash\" (harus salah satu: cash/qris/transfer/debit/credit),
+            \"raw_text\": \"Salin SEMUA teks yang terlihat di struk\"
+        }
+
+        ATURAN PENTING:
+        1. amount HARUS berupa angka integer, contoh: 250000 (bukan 250.000 atau Rp 250.000)
+        2. date HARUS format YYYY-MM-DD, konversi dari format DD/MM/YYYY jika perlu
+        3. payment_method HARUS lowercase: cash, qris, transfer, debit, atau credit
+        4. Jika ada tulisan CASH/TUNAI = cash, QRIS = qris, TRANSFER = transfer
+        5. KEMBALIKAN HANYA JSON, tanpa \`\`\`json atau markdown apapun";
+
+        try {
+            $response = \Illuminate\Support\Facades\Http::timeout(30)->withHeaders([
+                'Content-Type' => 'application/json',
+                'Authorization' => 'Bearer ' . $apiKey,
+                'HTTP-Referer' => config('app.url', 'http://localhost:8000'),
+                'X-Title' => 'FinansialKu Receipt Scanner',
+            ])->post('https://openrouter.ai/api/v1/chat/completions', [
+                'model' => $model,
+                'messages' => [
+                    [
+                        'role' => 'user',
+                        'content' => [
+                            [
+                                'type' => 'text',
+                                'text' => $prompt
+                            ],
+                            [
+                                'type' => 'image_url',
+                                'image_url' => [
+                                    'url' => "data:{$mimeType};base64,{$imageData}"
+                                ]
+                            ]
+                        ]
+                    ]
+                ],
+                'temperature' => 0.1,
+                'max_tokens' => 500,
+            ]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                $content = $data['choices'][0]['message']['content'] ?? '';
+
+                // Bersihkan JSON dari markdown
+                $content = preg_replace('/```json\s*|\s*```/', '', $content);
+                $content = trim($content);
+
+                $extracted = json_decode($content, true);
+
+                if (json_last_error() === JSON_ERROR_NONE && is_array($extracted)) {
+                    // Validasi minimal data yang diperlukan
+                    return [
+                        'title' => $extracted['title'] ?? 'Transaksi',
+                        'amount' => $extracted['amount'] ?? 0,
+                        'date' => $extracted['date'] ?? date('Y-m-d'),
+                        'description' => $extracted['description'] ?? '',
+                        'payment_method' => $extracted['payment_method'] ?? 'cash',
+                        'raw_text' => $extracted['raw_text'] ?? '',
+                    ];
+                }
+
+                Log::warning('Failed to parse AI response as JSON', [
+                    'content' => $content,
+                    'json_error' => json_last_error_msg()
+                ]);
+            } else {
+                Log::error('OpenRouter API error', [
+                    'status' => $response->status(),
+                    'body' => $response->body()
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error('Extract receipt error: ' . $e->getMessage());
+        }
+
+        // Default values jika gagal
+        return [
+            'title' => 'Transaksi',
+            'amount' => 0,
+            'date' => date('Y-m-d'),
+            'description' => '',
+            'payment_method' => 'cash',
+            'raw_text' => '',
+        ];
+    }
+
+    /**
+     * Cari kategori yang cocok berdasarkan judul, deskripsi, dan raw text
+     */
+    private function findMatchingCategory(string $title, string $description = '', string $rawText = ''): ?string
+    {
+        // Gabungkan semua text untuk pencarian
+        $fullText = strtolower($title . ' ' . $description . ' ' . $rawText);
+
+        // Mapping keyword ke category name (sesuai seeder)
+        $categoryKeywords = [
+            // Makan
+            'makan' => 'Makan',
+            'restoran' => 'Makan',
+            'cafe' => 'Makan',
+            'kopi' => 'Makan',
+            'minum' => 'Makan',
+            'sarapan' => 'Makan',
+            'siang' => 'Makan',
+            'malam' => 'Makan',
+            'food' => 'Makan',
+            'mie' => 'Makan',
+            'nasi' => 'Makan',
+            'bakso' => 'Makan',
+            'sate' => 'Makan',
+            'ayam' => 'Makan',
+            'gorengan' => 'Makan',
+
+            // Transport
+            'bensin' => 'Transport',
+            'pertamina' => 'Transport',
+            'pertamax' => 'Transport',
+            'parkir' => 'Transport',
+            'transport' => 'Transport',
+            'gojek' => 'Transport',
+            'grab' => 'Transport',
+            'ojek' => 'Transport',
+            'taxi' => 'Transport',
+            'taksi' => 'Transport',
+            'tol' => 'Transport',
+            'bengkel' => 'Transport',
+
+            // Belanja
+            'belanja' => 'Belanja',
+            'mall' => 'Belanja',
+            'toko' => 'Belanja',
+            'minimarket' => 'Belanja',
+            'supermarket' => 'Belanja',
+            'indomaret' => 'Belanja',
+            'alfamart' => 'Belanja',
+
+            // Tagihan
+            'listrik' => 'Tagihan',
+            'pln' => 'Tagihan',
+            'air' => 'Tagihan',
+            'pdam' => 'Tagihan',
+            'pulsa' => 'Tagihan',
+            'wifi' => 'Tagihan',
+            'internet' => 'Tagihan',
+            'telpon' => 'Tagihan',
+            'bpjs' => 'Tagihan',
+
+            // Hiburan
+            'bioskop' => 'Hiburan',
+            'cinema' => 'Hiburan',
+            'game' => 'Hiburan',
+            'netflix' => 'Hiburan',
+            'spotify' => 'Hiburan',
+            'musik' => 'Hiburan',
+            'liburan' => 'Hiburan',
+        ];
+
+        // Cari keyword yang cocok
+        foreach ($categoryKeywords as $keyword => $categoryName) {
+            if (str_contains($fullText, $keyword)) {
+                $category = Category::where('name', $categoryName)
+                    ->where('type', 'expense')
+                    ->first();
+
+                if ($category) {
+                    return (string) $category->id;
+                }
+            }
+        }
+
+        // Default: cari kategori "Belanja" sebagai fallback
+        $defaultCategory = Category::where('name', 'Belanja')
+            ->where('type', 'expense')
+            ->first();
+
+        return $defaultCategory ? (string) $defaultCategory->id : null;
     }
 }

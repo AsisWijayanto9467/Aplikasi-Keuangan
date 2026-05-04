@@ -7,11 +7,13 @@ import 'package:intl/intl.dart';
 class TransactionsPage extends StatefulWidget {
   final String token;
   final Map<String, dynamic>? transactionToEdit;
+  final Map<String, dynamic>? scanData;
 
   const TransactionsPage({
     super.key,
     required this.token,
     this.transactionToEdit,
+    this.scanData,
   });
 
   @override
@@ -78,8 +80,72 @@ class _TransactionsPageState extends State<TransactionsPage>
 
     if (_isEditMode) {
       _loadTransactionData();
+    } else if (widget.scanData != null) {
+      // ⬅️ TAMBAHKAN INI: Load data dari scan
+      _loadScanData();
     } else {
       _loadInitialData();
+    }
+  }
+
+  // ⬅️ TAMBAHKAN METHOD BARU
+  Future<void> _loadScanData() async {
+    setState(() => _isLoadingData = true);
+    try {
+      final scanData = widget.scanData!;
+
+      // Isi form dengan data hasil scan
+      _titleController.text = scanData['title'] ?? '';
+      _amountController.text = scanData['amount']?.toString() ?? '';
+      _descriptionController.text = scanData['description'] ?? '';
+      _transactionType = scanData['type'] ?? 'expense';
+      _selectedPaymentMethod = scanData['payment_method'] ?? 'cash';
+
+      // Parse tanggal
+      if (scanData['date'] != null) {
+        _selectedDate = DateTime.tryParse(scanData['date']) ?? DateTime.now();
+      }
+
+      // Load categories dulu
+      await _loadCategories();
+
+      // Set kategori dari scan jika ada
+      if (scanData['suggested_category_id'] != null &&
+          scanData['suggested_category_id'].toString().isNotEmpty) {
+        _selectedCategoryId = scanData['suggested_category_id'].toString();
+      }
+
+      await _loadBalance();
+
+      // Tampilkan snackbar info
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'Data struk berhasil diisi, silakan periksa kembali',
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: const Color(0xFF059669),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            margin: const EdgeInsets.all(16),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      _showErrorSnackBar('Gagal memuat data scan: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingData = false);
     }
   }
 
@@ -100,7 +166,6 @@ class _TransactionsPageState extends State<TransactionsPage>
     super.didChangeDependencies();
     _refreshOnResume();
   }
-
 
   Future<void> _loadTransactionData() async {
     setState(() => _isLoadingData = true);

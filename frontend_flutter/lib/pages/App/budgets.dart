@@ -373,10 +373,14 @@ class _BudgetsPageState extends State<BudgetsPage>
                                           color: _getCategoryColor(
                                             index,
                                           ).withOpacity(0.1),
-                                          borderRadius: BorderRadius.circular(8),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
                                         ),
                                         child: Icon(
-                                          _getCategoryIcon(category['name'] ?? ''),
+                                          _getCategoryIcon(
+                                            category['name'] ?? '',
+                                          ),
                                           color: _getCategoryColor(index),
                                           size: 16,
                                         ),
@@ -398,9 +402,13 @@ class _BudgetsPageState extends State<BudgetsPage>
                                           keyboardType: TextInputType.number,
                                           onChanged: (value) {
                                             double newTotal = 0;
-                                            budgetControllers.forEach((key, ctrl) {
+                                            budgetControllers.forEach((
+                                              key,
+                                              ctrl,
+                                            ) {
                                               newTotal +=
-                                                  double.tryParse(ctrl.text) ?? 0;
+                                                  double.tryParse(ctrl.text) ??
+                                                  0;
                                             });
                                             setDialogState(() {
                                               totalBudget = newTotal;
@@ -418,11 +426,12 @@ class _BudgetsPageState extends State<BudgetsPage>
                                                 const EdgeInsets.symmetric(
                                                   horizontal: 10,
                                                   vertical: 8,
-                                            ),
+                                                ),
                                             filled: true,
                                             fillColor: Colors.grey.shade50,
                                             border: OutlineInputBorder(
-                                              borderRadius: BorderRadius.circular(8),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
                                               borderSide: BorderSide.none,
                                             ),
                                           ),
@@ -442,7 +451,9 @@ class _BudgetsPageState extends State<BudgetsPage>
                                 decoration: BoxDecoration(
                                   color:
                                       totalBudget >
-                                              (double.tryParse(incomeController.text) ??
+                                              (double.tryParse(
+                                                    incomeController.text,
+                                                  ) ??
                                                   0)
                                           ? const Color(0xFFFEE2E2)
                                           : const Color(0xFFD1FAE5),
@@ -452,7 +463,9 @@ class _BudgetsPageState extends State<BudgetsPage>
                                   children: [
                                     Icon(
                                       totalBudget >
-                                              (double.tryParse(incomeController.text) ??
+                                              (double.tryParse(
+                                                    incomeController.text,
+                                                  ) ??
                                                   0)
                                           ? Icons.warning_rounded
                                           : Icons.check_circle_rounded,
@@ -482,7 +495,8 @@ class _BudgetsPageState extends State<BudgetsPage>
                                           color:
                                               totalBudget >
                                                       (double.tryParse(
-                                                            incomeController.text,
+                                                            incomeController
+                                                                .text,
                                                           ) ??
                                                           0)
                                                   ? const Color(0xFFDC2626)
@@ -514,9 +528,15 @@ class _BudgetsPageState extends State<BudgetsPage>
                                             return;
                                           }
 
-                                          final budgets = <Map<String, dynamic>>[];
-                                          budgetControllers.forEach((catId, ctrl) {
-                                            final amount = double.tryParse(ctrl.text);
+                                          final budgets =
+                                              <Map<String, dynamic>>[];
+                                          budgetControllers.forEach((
+                                            catId,
+                                            ctrl,
+                                          ) {
+                                            final amount = double.tryParse(
+                                              ctrl.text,
+                                            );
                                             if (amount != null && amount > 0) {
                                               budgets.add({
                                                 'category_id': catId,
@@ -533,10 +553,12 @@ class _BudgetsPageState extends State<BudgetsPage>
                                             return;
                                           }
 
-                                          final totalAllocation = budgets.fold<double>(
-                                            0,
-                                            (sum, b) => sum + b['limit_amount'],
-                                          );
+                                          final totalAllocation = budgets
+                                              .fold<double>(
+                                                0,
+                                                (sum, b) =>
+                                                    sum + b['limit_amount'],
+                                              );
                                           if (totalAllocation > income) {
                                             _showSnackBar(
                                               'Total budget melebihi pemasukan',
@@ -578,14 +600,18 @@ class _BudgetsPageState extends State<BudgetsPage>
                                             );
                                           } finally {
                                             if (mounted) {
-                                              setDialogState(() => isSaving = false);
+                                              setDialogState(
+                                                () => isSaving = false,
+                                              );
                                             }
                                           }
                                         },
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFF1E3A8A),
                                   foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                  ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(14),
                                   ),
@@ -597,9 +623,10 @@ class _BudgetsPageState extends State<BudgetsPage>
                                           height: 20,
                                           child: CircularProgressIndicator(
                                             strokeWidth: 2,
-                                            valueColor: AlwaysStoppedAnimation<Color>(
-                                              Colors.white,
-                                            ),
+                                            valueColor:
+                                                AlwaysStoppedAnimation<Color>(
+                                                  Colors.white,
+                                                ),
                                           ),
                                         )
                                         : const Text(
@@ -632,22 +659,39 @@ class _BudgetsPageState extends State<BudgetsPage>
     DateTime selectedDate = DateTime.now();
     bool isSaving = false;
 
-    showDialog(
+    showModalBottomSheet(
       context: context,
+      isScrollControlled: true, // ⭐ KEY: Biar full height pas keyboard muncul
+      backgroundColor: Colors.transparent,
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            return Dialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.65,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(24),
+                ),
               ),
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+              child: Column(
+                children: [
+                  // Handle bar
+                  Container(
+                    margin: const EdgeInsets.only(top: 12),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+
+                  // Header
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 8, 8),
+                    child: Row(
                       children: [
                         Container(
                           padding: const EdgeInsets.all(8),
@@ -660,15 +704,15 @@ class _BudgetsPageState extends State<BudgetsPage>
                           child: const Icon(
                             Icons.remove_rounded,
                             color: Colors.white,
-                            size: 20,
+                            size: 18,
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 10),
                         const Expanded(
                           child: Text(
                             'Catat Pengeluaran',
                             style: TextStyle(
-                              fontSize: 16,
+                              fontSize: 15,
                               fontWeight: FontWeight.bold,
                               color: Color(0xFF0F172A),
                             ),
@@ -676,283 +720,313 @@ class _BudgetsPageState extends State<BudgetsPage>
                         ),
                         IconButton(
                           onPressed: () => Navigator.pop(ctx),
-                          icon: const Icon(Icons.close_rounded),
+                          icon: const Icon(Icons.close_rounded, size: 20),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
+                  ),
 
-                    // Dropdown Kategori
-                    Text(
-                      'Kategori',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey.shade700,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<int>(
-                      value: selectedCategoryId,
-                      decoration: InputDecoration(
-                        hintText: 'Pilih kategori',
-                        filled: true,
-                        fillColor: Colors.grey.shade50,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                      items:
-                          _budgets.map<DropdownMenuItem<int>>((budget) {
-                            return DropdownMenuItem<int>(
-                              value: budget['category_id'],
+                  // Scrollable Content
+                  Expanded(
+                    child: SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Kategori
+                          Text(
+                            'Kategori',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey.shade700,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          DropdownButtonFormField<int>(
+                            value: selectedCategoryId,
+                            decoration: InputDecoration(
+                              hintText: 'Pilih kategori',
+                              filled: true,
+                              fillColor: Colors.grey.shade50,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 12,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none,
+                              ),
+                            ),
+                            items:
+                                _budgets.map<DropdownMenuItem<int>>((budget) {
+                                  final remaining = _parseDouble(
+                                    budget['remaining_amount'] ?? 0,
+                                  );
+                                  return DropdownMenuItem<int>(
+                                    value: budget['category_id'],
+                                    child: Text(
+                                      '${budget['category_name'] ?? ''} (Sisa: ${_formatCurrency(remaining)})',
+                                      style: const TextStyle(fontSize: 13),
+                                    ),
+                                  );
+                                }).toList(),
+                            onChanged: (value) {
+                              setDialogState(() => selectedCategoryId = value);
+                            },
+                          ),
+                          const SizedBox(height: 14),
+
+                          // Jumlah
+                          Text(
+                            'Jumlah',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey.shade700,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: amountController,
+                            keyboardType: TextInputType.number,
+                            decoration: InputDecoration(
+                              hintText: 'Masukkan jumlah',
+                              prefixText: 'Rp ',
+                              prefixStyle: const TextStyle(
+                                color: Color(0xFF1E3A8A),
+                                fontWeight: FontWeight.w600,
+                              ),
+                              filled: true,
+                              fillColor: Colors.grey.shade50,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 12,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none,
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(
+                                  color: Color(0xFF1E3A8A),
+                                  width: 1.5,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+
+                          // Deskripsi
+                          Text(
+                            'Deskripsi',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey.shade700,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: descController,
+                            decoration: InputDecoration(
+                              hintText: 'Contoh: Belanja bulanan',
+                              filled: true,
+                              fillColor: Colors.grey.shade50,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 12,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none,
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(
+                                  color: Color(0xFF1E3A8A),
+                                  width: 1.5,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+
+                          // Tanggal
+                          Text(
+                            'Tanggal',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey.shade700,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          InkWell(
+                            onTap: () async {
+                              FocusScope.of(context).unfocus();
+                              await Future.delayed(
+                                const Duration(milliseconds: 100),
+                              );
+                              final date = await showDatePicker(
+                                context: context,
+                                initialDate: selectedDate,
+                                firstDate: DateTime(2024),
+                                lastDate: DateTime.now(),
+                              );
+                              if (date != null) {
+                                setDialogState(() => selectedDate = date);
+                              }
+                            },
+                            child: Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 14,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade50,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                               child: Row(
                                 children: [
-                                  Text(budget['category_name'] ?? ''),
-                                  const SizedBox(width: 8),
+                                  const Icon(
+                                    Icons.calendar_today_rounded,
+                                    size: 16,
+                                    color: Color(0xFF1E3A8A),
+                                  ),
+                                  const SizedBox(width: 10),
                                   Text(
-                                    '(Sisa: ${_formatCurrency(_parseDouble(budget['remaining_amount'] ?? 0))})',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: Colors.grey.shade500,
-                                    ),
+                                    '${selectedDate.day}/${selectedDate.month}/${selectedDate.year}',
+                                    style: const TextStyle(fontSize: 14),
                                   ),
                                 ],
                               ),
-                            );
-                          }).toList(),
-                      onChanged: (value) {
-                        setDialogState(() => selectedCategoryId = value);
-                      },
-                    ),
-                    const SizedBox(height: 14),
-
-                    // Input Amount
-                    Text(
-                      'Jumlah',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey.shade700,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: amountController,
-                      keyboardType: TextInputType.number,
-                      decoration: InputDecoration(
-                        hintText: 'Masukkan jumlah',
-                        prefixText: 'Rp ',
-                        prefixStyle: const TextStyle(
-                          color: Color(0xFF1E3A8A),
-                          fontWeight: FontWeight.w600,
-                        ),
-                        filled: true,
-                        fillColor: Colors.grey.shade50,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: Color(0xFF1E3A8A),
-                            width: 1.5,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-
-                    // Input Description
-                    Text(
-                      'Deskripsi',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey.shade700,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: descController,
-                      decoration: InputDecoration(
-                        hintText: 'Contoh: Belanja bulanan',
-                        filled: true,
-                        fillColor: Colors.grey.shade50,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: Color(0xFF1E3A8A),
-                            width: 1.5,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-
-                    // Date Picker
-                    Text(
-                      'Tanggal',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey.shade700,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    InkWell(
-                      onTap: () async {
-                        final date = await showDatePicker(
-                          context: context,
-                          initialDate: selectedDate,
-                          firstDate: DateTime(2024),
-                          lastDate: DateTime.now(),
-                        );
-                        if (date != null) {
-                          setDialogState(() => selectedDate = date);
-                        }
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 14,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade50,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.calendar_today_rounded,
-                              size: 16,
-                              color: Color(0xFF1E3A8A),
                             ),
-                            const SizedBox(width: 10),
-                            Text(
-                              '${selectedDate.day}/${selectedDate.month}/${selectedDate.year}',
-                              style: const TextStyle(fontSize: 14),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
+                          ),
+                          const SizedBox(height: 14),
 
-                    // Current Budget Info
-                    if (selectedCategoryId != null)
-                      _buildBudgetInfoCard(selectedCategoryId!),
+                          // Budget Info Card
+                          if (selectedCategoryId != null)
+                            _buildBudgetInfoCard(selectedCategoryId!),
 
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed:
-                            isSaving
-                                ? null
-                                : () async {
-                                  if (selectedCategoryId == null) {
-                                    _showSnackBar(
-                                      'Pilih kategori terlebih dahulu',
-                                      isError: true,
-                                    );
-                                    return;
-                                  }
+                          const SizedBox(height: 20),
 
-                                  final amount = double.tryParse(
-                                    amountController.text,
-                                  );
-                                  if (amount == null || amount <= 0) {
-                                    _showSnackBar(
-                                      'Masukkan jumlah yang valid',
-                                      isError: true,
-                                    );
-                                    return;
-                                  }
-
-                                  if (descController.text.trim().isEmpty) {
-                                    _showSnackBar(
-                                      'Deskripsi tidak boleh kosong',
-                                      isError: true,
-                                    );
-                                    return;
-                                  }
-
-                                  setDialogState(() => isSaving = true);
-
-                                  try {
-                                    final response =
-                                        await BudgetService.addTransaction(
-                                          token: widget.token,
-                                          categoryId: selectedCategoryId!,
-                                          amount: amount,
-                                          description:
-                                              descController.text.trim(),
-                                          date:
-                                              '${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}',
+                          // Tombol Simpan
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed:
+                                  isSaving
+                                      ? null
+                                      : () async {
+                                        if (selectedCategoryId == null) {
+                                          _showSnackBar(
+                                            'Pilih kategori terlebih dahulu',
+                                            isError: true,
+                                          );
+                                          return;
+                                        }
+                                        final amount = double.tryParse(
+                                          amountController.text,
                                         );
+                                        if (amount == null || amount <= 0) {
+                                          _showSnackBar(
+                                            'Masukkan jumlah yang valid',
+                                            isError: true,
+                                          );
+                                          return;
+                                        }
+                                        if (descController.text
+                                            .trim()
+                                            .isEmpty) {
+                                          _showSnackBar(
+                                            'Deskripsi tidak boleh kosong',
+                                            isError: true,
+                                          );
+                                          return;
+                                        }
 
-                                    if (response['success'] == true) {
-                                      Navigator.pop(ctx);
-                                      _showSnackBar(
-                                        'Transaksi berhasil dicatat',
-                                      );
-                                      await _loadInitialData();
-                                    } else {
-                                      _showSnackBar(
-                                        response['message'] ??
-                                            'Gagal mencatat transaksi',
-                                        isError: true,
-                                      );
-                                    }
-                                  } catch (e) {
-                                    _showSnackBar(
-                                      'Error: ${e.toString()}',
-                                      isError: true,
-                                    );
-                                  } finally {
-                                    if (mounted) {
-                                      setDialogState(() => isSaving = false);
-                                    }
-                                  }
-                                },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFEF4444),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                        child:
-                            isSaving
-                                ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      Colors.white,
-                                    ),
-                                  ),
-                                )
-                                : const Text(
-                                  'Simpan Transaksi',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 14,
-                                  ),
+                                        setDialogState(() => isSaving = true);
+
+                                        try {
+                                          final response =
+                                              await BudgetService.addTransaction(
+                                                token: widget.token,
+                                                categoryId: selectedCategoryId!,
+                                                amount: amount,
+                                                description:
+                                                    descController.text.trim(),
+                                                date:
+                                                    '${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}',
+                                              );
+
+                                          if (response['success'] == true) {
+                                            Navigator.pop(ctx);
+                                            _showSnackBar(
+                                              'Transaksi berhasil dicatat',
+                                            );
+                                            await _loadInitialData();
+                                          } else {
+                                            _showSnackBar(
+                                              response['message'] ??
+                                                  'Gagal mencatat transaksi',
+                                              isError: true,
+                                            );
+                                          }
+                                        } catch (e) {
+                                          _showSnackBar(
+                                            'Error: ${e.toString()}',
+                                            isError: true,
+                                          );
+                                        } finally {
+                                          if (mounted) {
+                                            setDialogState(
+                                              () => isSaving = false,
+                                            );
+                                          }
+                                        }
+                                      },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFEF4444),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 14,
                                 ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                              child:
+                                  isSaving
+                                      ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor:
+                                              AlwaysStoppedAnimation<Color>(
+                                                Colors.white,
+                                              ),
+                                        ),
+                                      )
+                                      : const Text(
+                                        'Simpan Transaksi',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                        ],
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             );
           },

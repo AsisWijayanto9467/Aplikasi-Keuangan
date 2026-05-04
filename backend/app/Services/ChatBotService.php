@@ -17,23 +17,33 @@ class ChatBotService
 {
     protected string $apiKey;
     protected string $baseUrl;
+    protected string $model;
 
     protected string $systemContext = "Anda adalah AI Assistant untuk aplikasi keuangan 'FinansialKu'.
-        Tugas Anda adalah membantu pengguna dengan pertanyaan seputar saldo, transaksi, pemasukan, pengeluaran, budget, dan target keuangan.
-        Jawablah selalu dalam Bahasa Indonesia dengan nada profesional, ramah, dan edukatif.
-        Jika pengguna bertanya tentang data yang tidak tersedia di konteks, katakan dengan jujur bahwa Anda tidak memiliki data tersebut.
-        Jangan pernah memberikan saran investasi ilegal atau rekomendasi yang berisiko tinggi.
-        Selalu dorong pengguna untuk menabung dan mengelola keuangan dengan bijak.";
+    Tugas Anda adalah membantu pengguna dengan:
+    1. Pertanyaan tentang saldo, transaksi, pemasukan, pengeluaran, budget, dan target keuangan MEREKA (berdasarkan data yang disediakan).
+    2. Pertanyaan edukasi finansial SEPUTAR: tips menabung, budgeting, investasi (reksadana, emas, saham), mengelola keuangan, perencanaan keuangan, dll.
+
+    ATURAN PENTING:
+    - Jawab selalu dalam Bahasa Indonesia dengan nada profesional, ramah, dan edukatif.
+    - Jika ditanya tentang data pribadi (saldo, transaksi), jawab berdasarkan DATA YANG DISEDIAKAN.
+    - Jika data tidak tersedia, JELASKAN bahwa data tersebut tidak ada, lalu TETAP berikan jawaban edukatif.
+    - Untuk pertanyaan edukasi (tips investasi, cara menabung), jawab dengan PENJELASAN UMUM berdasarkan prinsip keuangan yang sehat.
+    - JANGAN PERNAH berikan rekomendasi investasi spesifik (sebut nama produk), prediksi keuntungan, atau klaim 'pasti untung'.
+    - Dorong pengguna untuk belajar lebih lanjut, diversifikasi, dan konsultasi dengan profesional keuangan.
+    - Gunakan format yang mudah dibaca.";
 
     public function __construct()
     {
-        $this->apiKey = config('services.gemini.api_key');
-        $this->baseUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent';
+        // ✅ PAKAI OPENROUTER, BUKAN GEMINI
+        $this->apiKey = config('services.openrouter.api_key');
+        $this->baseUrl = 'https://openrouter.ai/api/v1/chat/completions';
+        $this->model = config('services.openrouter.model', 'google/gemini-2.0-flash-lite-001');
     }
 
     /**
      * Generate greeting message with user's name
-     * TIDAK menggunakan AI - langsung generate dari server
+     * TIDAK menggunakan AI - langsung generate dari server (HEMAT TOKEN)
      */
     public function getGreeting(int $userId): array
     {
@@ -48,7 +58,6 @@ class ChatBotService
 
         $userName = $user->name;
 
-        // Ambil waktu sekarang untuk greeting yang sesuai
         $hour = Carbon::now()->hour;
         if ($hour >= 5 && $hour < 12) {
             $timeGreeting = "Selamat pagi";
@@ -60,7 +69,6 @@ class ChatBotService
             $timeGreeting = "Selamat malam";
         }
 
-        // Ambil data ringkas untuk ditampilkan
         $balance = Balance::where('user_id', $userId)->first();
         $currentBalance = $balance ? $balance->balance : 0;
 
@@ -76,7 +84,6 @@ class ChatBotService
         $greetingMessage = "{$timeGreeting}, {$userName}! 👋\n\n";
         $greetingMessage .= "Saya asisten keuangan FinansialKu, siap membantu Anda mengelola keuangan dengan lebih baik.\n\n";
 
-        // Tambahkan ringkasan keuangan
         if ($currentBalance > 0 || $totalExpense > 0) {
             $greetingMessage .= "📊 **Ringkasan Keuangan Anda:**\n";
             $greetingMessage .= "💰 Saldo: Rp " . number_format($currentBalance, 0, ',', '.') . "\n";
@@ -99,50 +106,60 @@ class ChatBotService
         ];
     }
 
-    // Method sendMessage yang sudah dimodifikasi
+    /**
+     * Kirim pesan ke OpenRouter API
+     */
     public function sendMessage(string $userMessage, int $userId, string $userName = null): string
     {
-        // Jika user name tidak diberikan, ambil dari database
         if (!$userName) {
             $user = User::find($userId);
             $userName = $user ? $user->name : 'Pengguna';
         }
 
-        // Deteksi topik pertanyaan untuk ambil data yang relevan saja
         $financialData = $this->gatherFinancialData($userId, $userMessage);
+        $prompt = $this->buildCompactPrompt($financialData, $userMessage, $userName);
 
-        $fullPrompt = $this->buildPrompt($financialData, $userMessage, $userName);
+        Log::info('OpenRouter Request', [
+            'model' => $this->model,
+            'prompt_length' => strlen($prompt)
+        ]);
 
+        // ✅ FORMAT OPENAI-COMPATIBLE (OpenRouter)
         $payload = [
-            'contents' => [
-                [
-                    'parts' => [
-                        ['text' => $fullPrompt]
-                    ]
-                ]
+            'model' => $this->model,
+            'messages' => [
+                ['role' => 'system', 'content' => $this->systemContext],
+                ['role' => 'user', 'content' => $prompt]
             ],
-            'generationConfig' => [
-                'temperature' => 0.3,
-                'maxOutputTokens' => 1000,
-                'topP' => 0.95,
-            ]
+            'temperature' => 0.3,
+            'max_tokens' => 600,
         ];
 
         $response = Http::withHeaders([
             'Content-Type' => 'application/json',
-            'X-goog-api-key' => $this->apiKey,
+            'Authorization' => 'Bearer ' . $this->apiKey,
+            'HTTP-Referer' => config('app.url', 'http://localhost:8000'),
+            'X-Title' => 'FinansialKu',
         ])->post($this->baseUrl, $payload);
 
         if ($response->successful()) {
             $data = $response->json();
-            $reply = $data['candidates'][0]['content']['parts'][0]['text']
+
+            // Log token usage (untuk monitoring)
+            if (isset($data['usage'])) {
+                Log::info('OpenRouter Usage', [
+                    'prompt_tokens' => $data['usage']['prompt_tokens'] ?? 0,
+                    'completion_tokens' => $data['usage']['completion_tokens'] ?? 0,
+                    'total_tokens' => $data['usage']['total_tokens'] ?? 0,
+                    'cost' => $data['usage']['cost'] ?? 0, // Harusnya $0
+                ]);
+            }
+
+            $reply = $data['choices'][0]['message']['content']
                 ?? 'Maaf, saya tidak dapat menghasilkan jawaban saat ini.';
 
-            // Pastikan AI menyapa dengan nama jika belum ada
-            if (stripos($userMessage, 'halo') !== false ||
-                stripos($userMessage, 'hai') !== false ||
-                stripos($userMessage, 'hello') !== false) {
-                // Cek apakah AI sudah menyebut nama
+            // Tambahkan nama user di awal jika pertanyaan sapaan
+            if (preg_match('/(halo|hai|hello|hallo|hei|hi|pagi|siang|sore|malam)/i', $userMessage)) {
                 if (stripos($reply, $userName) === false) {
                     $reply = "Halo {$userName}! " . lcfirst($reply);
                 }
@@ -151,7 +168,7 @@ class ChatBotService
             return $reply;
         }
 
-        Log::error('Gemini API Error', [
+        Log::error('OpenRouter API Error', [
             'status' => $response->status(),
             'body' => $response->body()
         ]);
@@ -159,9 +176,6 @@ class ChatBotService
         return 'Maaf, terjadi kesalahan sistem. Silakan coba lagi nanti.';
     }
 
-    /**
-     * Deteksi topik pertanyaan untuk query data yang relevan.
-     */
     private function detectTopics(string $message): array
     {
         $message = strtolower($message);
@@ -186,9 +200,14 @@ class ChatBotService
             $topics[] = 'transactions';
         }
 
-        // Kalau tidak terdeteksi atau pertanyaan umum, ambil semua
+        // ✅ TAMBAHKAN DETEKSI TOPIK EDUKASI
+        if (preg_match('/(investasi|saham|reksadana|obligasi|deposito|cara|tips|saran|edukasi|belajar|jelaskan|apa itu|bagaimana|strategi|kelola|atur|hemat)/', $message)) {
+            $topics[] = 'education';
+        }
+
+        // Kalau tidak terdeteksi, ambil data dasar + education agar AI tetap bisa menjawab
         if (empty($topics)) {
-            $topics = ['balance', 'expenses', 'incomes', 'budgets', 'targets', 'transactions'];
+            $topics = ['balance', 'expenses', 'incomes', 'education'];
         }
 
         return $topics;
@@ -199,120 +218,107 @@ class ChatBotService
         $now = Carbon::now();
         $currentMonth = $now->month;
         $currentYear = $now->year;
-
-        // Deteksi topik untuk efisiensi
         $topics = $this->detectTopics($userMessage);
-
         $data = ['current_month' => $now->format('F Y')];
 
-        // Saldo (selalu diambil karena fundamental)
-        if (in_array('balance', $topics)) {
-            $balance = Balance::where('user_id', $userId)->first();
-            $data['balance'] = $balance ? $balance->balance : 0;
-        }
+        // ✅ HANYA ambil data jika topiknya relevan
+        $needFinancialData = array_intersect($topics, ['balance', 'expenses', 'incomes', 'transactions', 'budgets', 'targets']);
 
-        // Pengeluaran bulan ini
-        if (in_array('expenses', $topics)) {
-            $data['total_expense_this_month'] = Transaction::where('user_id', $userId)
-                ->where('type', 'expense')
-                ->whereMonth('date', $currentMonth)
-                ->whereYear('date', $currentYear)
-                ->sum('amount');
-        }
+        if (!empty($needFinancialData) || in_array('education', $topics)) {
+            if (in_array('balance', $topics)) {
+                $balance = Balance::where('user_id', $userId)->first();
+                $data['balance'] = $balance ? $balance->balance : 0;
+            }
 
-        // Pemasukan bulan ini
-        if (in_array('incomes', $topics)) {
-            $monthlyIncome = MonthlyIncome::where('user_id', $userId)
-                ->where('month', $currentMonth)
-                ->where('year', $currentYear)
-                ->first();
-            $data['monthly_income_total'] = $monthlyIncome ? $monthlyIncome->total_income : 0;
+            if (in_array('expenses', $topics)) {
+                $data['total_expense_this_month'] = Transaction::where('user_id', $userId)
+                    ->where('type', 'expense')
+                    ->whereMonth('date', $currentMonth)
+                    ->whereYear('date', $currentYear)
+                    ->sum('amount');
+            }
 
-            $data['total_income_this_month'] = Transaction::where('user_id', $userId)
-                ->where('type', 'income')
-                ->whereMonth('date', $currentMonth)
-                ->whereYear('date', $currentYear)
-                ->sum('amount');
-        }
+            if (in_array('incomes', $topics)) {
+                $monthlyIncome = MonthlyIncome::where('user_id', $userId)
+                    ->where('month', $currentMonth)
+                    ->where('year', $currentYear)
+                    ->first();
+                $data['monthly_income_total'] = $monthlyIncome ? $monthlyIncome->total_income : 0;
+            }
 
-        // Transaksi terbaru
-        if (in_array('transactions', $topics)) {
-            $recentTransactions = Transaction::where('user_id', $userId)
-                ->with('category:id,name')
-                ->orderBy('date', 'desc')
-                ->orderBy('id', 'desc')
-                ->limit(5)
-                ->get();
-            $data['recent_transactions'] = $recentTransactions->toArray();
-        }
+            if (in_array('transactions', $topics)) {
+                $data['recent_transactions'] = Transaction::where('user_id', $userId)
+                    ->with('category:id,name')
+                    ->orderBy('date', 'desc')
+                    ->orderBy('id', 'desc')
+                    ->limit(3)
+                    ->get()
+                    ->toArray();
+            }
 
-        // Budget
-        if (in_array('budgets', $topics)) {
-            $budgets = Budget::where('user_id', $userId)
-                ->where('month', $currentMonth)
-                ->where('year', $currentYear)
-                ->with('category:id,name')
-                ->get();
-            $data['budgets'] = $budgets->toArray();
-        }
+            if (in_array('budgets', $topics)) {
+                $data['budgets'] = Budget::where('user_id', $userId)
+                    ->where('month', $currentMonth)
+                    ->where('year', $currentYear)
+                    ->with('category:id,name')
+                    ->get()
+                    ->toArray();
+            }
 
-        // Target
-        if (in_array('targets', $topics)) {
-            $activeTargets = FinancialTarget::where('user_id', $userId)
-                ->where('status', 'active')
-                ->orderBy('target_date', 'asc')
-                ->limit(3)
-                ->get();
-            $data['active_targets'] = $activeTargets->toArray();
+            if (in_array('targets', $topics)) {
+                $data['active_targets'] = FinancialTarget::where('user_id', $userId)
+                    ->where('status', 'active')
+                    ->orderBy('target_date', 'asc')
+                    ->limit(2)
+                    ->get()
+                    ->toArray();
+            }
         }
 
         return $data;
     }
 
-    private function buildPrompt(array $data, string $userMessage, string $userName = 'Pengguna'): string
+    /**
+     * ✅ PROMPT RINGKAS (hemat token 5-10x)
+     */
+    private function buildCompactPrompt(array $data, string $userMessage, string $userName): string
     {
-        $prompt = $this->systemContext . "\n\n";
-        $prompt .= "=== DATA KEUANGAN PENGGUNA ===\n";
-        $prompt .= "Nama Pengguna: {$userName}\n"; // TAMBAHKAN NAMA USER KE PROMPT
-        $prompt .= "Bulan: {$data['current_month']}\n";
+        $lines = [];
+        $lines[] = "=== DATA {$userName} ===";
 
-        // Hanya tampilkan data yang tersedia
-        if (isset($data['balance'])) {
-            $prompt .= "Saldo saat ini: Rp " . number_format($data['balance'], 0, ',', '.') . "\n";
-        }
+        // Hanya tampilkan data jika tersedia dan relevan
+        $hasFinancialData = isset($data['balance']) || isset($data['total_expense_this_month']);
 
-        if (isset($data['monthly_income_total'])) {
-            $prompt .= "Total pemasukan bulan ini: Rp " . number_format($data['monthly_income_total'], 0, ',', '.') . "\n";
-        }
-
-        if (isset($data['total_expense_this_month'])) {
-            $prompt .= "Total pengeluaran bulan ini: Rp " . number_format($data['total_expense_this_month'], 0, ',', '.') . "\n";
-        }
-
-        // Sisa uang (kalau kedua data tersedia)
-        if (isset($data['total_income_this_month']) && isset($data['total_expense_this_month'])) {
-            $sisa = $data['total_income_this_month'] - $data['total_expense_this_month'];
-            $prompt .= "Sisa uang bulan ini: Rp " . number_format($sisa, 0, ',', '.') . "\n";
-        }
-
-        $prompt .= "\n";
-
-        // 5 Transaksi Terbaru
-        if (!empty($data['recent_transactions'])) {
-            $prompt .= "=== 5 TRANSAKSI TERBARU ===\n";
-            foreach ($data['recent_transactions'] as $trx) {
-                $tipe = $trx['type'] === 'income' ? 'MASUK' : 'KELUAR';
-                $kategori = $trx['category']['name'] ?? 'Tanpa Kategori';
-                $prompt .= "- [{$trx['date']}] {$tipe}: Rp " . number_format($trx['amount'], 0, ',', '.') . " ({$trx['title']}, Kategori: {$kategori})\n";
+        if ($hasFinancialData) {
+            if (isset($data['balance'])) {
+                $lines[] = "💰 Saldo: Rp" . number_format($data['balance'], 0, ',', '.');
             }
-            $prompt .= "\n";
+            if (isset($data['total_expense_this_month'])) {
+                $lines[] = "📤 Pengeluaran/bln: Rp" . number_format($data['total_expense_this_month'], 0, ',', '.');
+            }
+            if (isset($data['monthly_income_total']) && $data['monthly_income_total'] > 0) {
+                $lines[] = "📥 Pemasukan/bln: Rp" . number_format($data['monthly_income_total'], 0, ',', '.');
+            }
+            if (isset($data['monthly_income_total']) && isset($data['total_expense_this_month'])) {
+                $sisa = $data['monthly_income_total'] - $data['total_expense_this_month'];
+                $lines[] = "💡 Sisa: Rp" . number_format($sisa, 0, ',', '.');
+            }
         }
 
-        // Budget
+        // Transaksi terbaru (max 3)
+        if (!empty($data['recent_transactions'])) {
+            $lines[] = "\n📋 Transaksi terbaru:";
+            foreach (array_slice($data['recent_transactions'], 0, 3) as $trx) {
+                $tipe = $trx['type'] === 'income' ? '+' : '-';
+                $kat = $trx['category']['name'] ?? '';
+                $lines[] = "  {$tipe}Rp" . number_format($trx['amount'], 0, ',', '.') . " - {$trx['title']}" . ($kat ? " ({$kat})" : "");
+            }
+        }
+
+        // Budget kritis (>80%)
         if (!empty($data['budgets'])) {
-            $prompt .= "=== BUDGET BULAN INI ===\n";
+            $kritis = [];
             foreach ($data['budgets'] as $budget) {
-                $kategori = $budget['category']['name'] ?? 'Kategori';
                 $terpakai = DB::table('budget_transactions')
                     ->where('user_id', $budget['user_id'])
                     ->where('category_id', $budget['category_id'])
@@ -320,35 +326,37 @@ class ChatBotService
                     ->whereYear('date', Carbon::now()->year)
                     ->sum('amount');
                 $persen = $budget['limit_amount'] > 0 ? round(($terpakai / $budget['limit_amount']) * 100) : 0;
-
-                // Tambahkan peringatan kalau budget hampir habis
-                $warning = $persen >= 80 ? " ⚠️ HAMPIR HABIS!" : "";
-                $prompt .= "- {$kategori}: Rp " . number_format($terpakai, 0, ',', '.') . " / Rp " . number_format($budget['limit_amount'], 0, ',', '.') . " ({$persen}%){$warning}\n";
+                if ($persen >= 80) {
+                    $kritis[] = ($budget['category']['name'] ?? '') . ": {$persen}%";
+                }
             }
-            $prompt .= "\n";
+            if (!empty($kritis)) {
+                $lines[] = "\n⚠️ Budget hampir habis:";
+                foreach ($kritis as $k) {
+                    $lines[] = "  • {$k}";
+                }
+            }
         }
 
-        // Target Keuangan
+        // Target aktif
         if (!empty($data['active_targets'])) {
-            $prompt .= "=== TARGET KEUANGAN AKTIF ===\n";
+            $lines[] = "\n🎯 Target aktif:";
             foreach ($data['active_targets'] as $target) {
                 $progress = $target['target_amount'] > 0 ? round(($target['current_amount'] / $target['target_amount']) * 100) : 0;
-                $deadline = Carbon::parse($target['target_date'])->format('d M Y');
-                $sisaHari = Carbon::now()->diffInDays(Carbon::parse($target['target_date']), false);
-                $warning = $sisaHari < 30 && $progress < 80 ? " ⚠️ WAKTU SEDIKIT!" : "";
-                $prompt .= "- {$target['title']}: Rp " . number_format($target['current_amount'], 0, ',', '.') . " / Rp " . number_format($target['target_amount'], 0, ',', '.') . " ({$progress}%, Deadline: {$deadline}, Sisa: {$sisaHari} hari){$warning}\n";
+                $lines[] = "  • {$target['title']}: {$progress}%";
             }
-            $prompt .= "\n";
         }
 
-        $prompt .= "=== PERTANYAAN PENGGUNA ===\n";
-        $prompt .= $userMessage . "\n\n";
-        $prompt .= "Jawab pertanyaan {$userName} berdasarkan data keuangan di atas. ";
-        $prompt .= "SAPA {$userName} DI AWAL JAWABAN JIKA RELEVAN. ";
-        $prompt .= "Gunakan format yang mudah dibaca dengan poin-poin atau ringkasan. ";
-        $prompt .= "Jika data tidak mencukupi untuk menjawab, jelaskan keterbatasan data yang Anda miliki. ";
-        $prompt .= "Berikan tips keuangan yang relevan jika memungkinkan.";
+        $lines[] = "\n📝 Pertanyaan: {$userMessage}";
 
-        return $prompt;
+        // ✅ INSTRUKSI YANG DIPERBAIKI
+        if ($hasFinancialData) {
+            $lines[] = "Jika pertanyaan tentang data pribadi, jawab berdasarkan DATA di atas. Jika data tidak ada, jelaskan lalu berikan jawaban edukatif.";
+        } else {
+            $lines[] = "Tidak ada data keuangan pengguna. Berikan jawaban EDUKATIF dan UMUM tentang topik yang ditanyakan.";
+        }
+        $lines[] = "Jawab dalam Bahasa Indonesia yang ramah dan informatif. JANGAN menolak pertanyaan, selalu berikan nilai edukasi.";
+
+        return implode("\n", $lines);
     }
 }

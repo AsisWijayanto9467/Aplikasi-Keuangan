@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:frontend_flutter/pages/App/chatbot_page.dart';
 import 'package:frontend_flutter/pages/App/financial_target_list.dart';
 import 'package:frontend_flutter/pages/App/report.dart';
+import 'package:frontend_flutter/pages/App/scan_receipt_page.dart';
 import 'package:frontend_flutter/pages/auth/login_page.dart';
 import 'package:frontend_flutter/pages/App/statistic_page.dart';
 import 'package:frontend_flutter/pages/App/transaction_page.dart';
@@ -1074,13 +1075,21 @@ class _DashboardContentState extends State<DashboardContent>
                 },
               ),
               _buildQuickAction(
-                icon: Icons.cloud_upload_rounded,
-                label: 'Upload',
+                icon: Icons.document_scanner_rounded, // ⬅️ GANTI ICON
+                label: 'Scan', // ⬅️ GANTI LABEL
                 color: const Color(0xFF10B981),
                 onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Fitur Upload segera hadir')),
-                  );
+                  // ⬅️ NAVIGASI KE HALAMAN SCAN
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder:
+                          (context) => ScanReceiptPage(token: widget.token),
+                    ),
+                  ).then((_) {
+                    // ⬅️ REFRESH SAAT KEMBALI
+                    refreshAllData();
+                  });
                 },
               ),
               _buildQuickAction(
@@ -1092,9 +1101,7 @@ class _DashboardContentState extends State<DashboardContent>
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder:
-                          (context) =>
-                             AiChatPage(token: widget.token),
+                      builder: (context) => AiChatPage(token: widget.token),
                     ),
                   ).then((_) {
                     // ⭐ REFRESH SAAT KEMBALI

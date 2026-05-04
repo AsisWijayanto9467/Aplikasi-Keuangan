@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Auth;
 
 class ChatController extends Controller
 {
-    protected ChatBotService $chatChatBotService;
+    protected ChatBotService $chatBotService;
 
     public function __construct(ChatBotService $chatBotService)
     {
