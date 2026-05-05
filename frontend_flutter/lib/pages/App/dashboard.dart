@@ -5,6 +5,7 @@ import 'package:frontend_flutter/pages/App/report.dart';
 import 'package:frontend_flutter/pages/App/scan_receipt_page.dart';
 import 'package:frontend_flutter/pages/auth/login_page.dart';
 import 'package:frontend_flutter/pages/App/statistic_page.dart';
+import 'package:frontend_flutter/pages/App/profile_page.dart';
 import 'package:frontend_flutter/pages/App/transaction_page.dart';
 import 'package:frontend_flutter/pages/App/budgets.dart';
 import 'package:frontend_flutter/pages/App/transaction_history.dart';
@@ -566,50 +567,65 @@ class _DashboardContentState extends State<DashboardContent>
   Widget _buildHeader() {
     return Row(
       children: [
-        Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(2),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.5),
-                  width: 2,
-                ),
+        // ⭐ TAMBAHKAN GestureDetector DI SINI
+        GestureDetector(
+          onTap: () {
+            // ⭐ NAVIGASI KE PROFILE PAGE
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ProfilePage(token: widget.token),
               ),
-              child: CircleAvatar(
-                radius: 22,
-                backgroundColor: Colors.white.withOpacity(0.15),
-                child: Text(
-                  _userName.isNotEmpty ? _userName[0].toUpperCase() : 'U',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+            ).then((_) {
+              // ⭐ REFRESH DATA SAAT KEMBALI DARI PROFILE
+              refreshAllData();
+            });
+          },
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.5),
+                    width: 2,
+                  ),
+                ),
+                child: CircleAvatar(
+                  radius: 22,
+                  backgroundColor: Colors.white.withOpacity(0.15),
+                  child: Text(
+                    _userName.isNotEmpty ? _userName[0].toUpperCase() : 'U',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Selamat Datang,',
-                  style: TextStyle(fontSize: 12, color: Colors.white70),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  _userName,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Selamat Datang,',
+                    style: TextStyle(fontSize: 12, color: Colors.white70),
                   ),
-                ),
-              ],
-            ),
-          ],
+                  const SizedBox(height: 2),
+                  Text(
+                    _userName,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
         const Spacer(),
         // Notifikasi
@@ -621,7 +637,11 @@ class _DashboardContentState extends State<DashboardContent>
           ),
           child: IconButton(
             onPressed: () {
-              // TODO: Navigate to notifications
+              // ⭐ PINDAHKAN NAVIGASI PROFILE DARI SINI (sekarang sudah di atas)
+              // Biarkan notifikasi untuk fungsi notifikasi saja
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Notifikasi akan segera hadir')),
+              );
             },
             icon: Stack(
               children: [
